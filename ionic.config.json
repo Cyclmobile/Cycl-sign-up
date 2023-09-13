@@ -1,0 +1,7 @@
+{
+  "name": "Cycl",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
