@@ -44,6 +44,7 @@ import {
   IonContent,
 } from "@ionic/vue";
 import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -102,6 +103,8 @@ const predictionURL =
   "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
 
 onMounted(async () => {
+  console.log("onMounted is executed");
+
   async function takePicture() {
     try {
       const image = await Camera.getPhoto({
@@ -152,6 +155,8 @@ Dialog.alert({
 });
 
 function initMap(centerCoordinates: [number, number]) {
+  console.log("initMap is executed with coordinates", centerCoordinates);
+
   mapboxgl.accessToken =
     "pk.eyJ1IjoiY3ljbG1vYmlsZWFwcCIsImEiOiJja3lxODRlOHQwMGR0MnhzMHd3YXl3OTVxIn0.Gg2Zqy13hJU5iDUuV_F2Zg";
 

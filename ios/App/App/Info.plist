@@ -9,6 +9,12 @@
 			<true/>
 		</dict>
 
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>We need access to your photo library to allow you to select photos to upload.</string>
+
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>We need access to your photo library to allow you to select photos to upload.</string>
+
 
 		<key>MGLMapboxAccessToken</key>
 		<string>pk.eyJ1IjoiY3ljbG1vYmlsZWFwcCIsImEiOiJja3lxODRlOHQwMGR0MnhzMHd3YXl3OTVxIn0.Gg2Zqy13hJU5iDUuV_F2Zg</string>
