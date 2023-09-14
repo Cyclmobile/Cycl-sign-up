@@ -1,41 +1,21 @@
 <template>
   <ion-page>
-    <ion-header></ion-header>
+    <ion-header> </ion-header>
     <ion-content :fullscreen="true">
-      <ion-header collapse="condense"></ion-header>
-
-      <div v-if="showCameraOverlay" class="camera-overlay">
-        <button class="cross-out-btn" @click="hideCameraOverlay">X</button>
-
-        <video
-          ref="video"
-          width="640"
-          height="480"
-          autoplay
-          muted
-          playsinline
-          style="display: none"
-        ></video>
-        <canvas ref="canvas" width="640" height="480"></canvas>
-        <p id="steps">{{ currentStep }}</p>
-      </div>
+      <ion-header collapse="condense"> </ion-header>
 
       <div id="map" style="width: 100%; height: 100%"></div>
-      <div v-if="showOverlay" class="overlay">
-        <p @click="closeOverlay">X</p>
-        <div>Station Number: {{ selectedMarker?.stationNumber }}</div>
-        <div>Place: {{ selectedMarker?.placeName }}</div>
-        <div>Address: {{ selectedMarker?.address }}</div>
-        <div>Capacity: {{ selectedMarker?.capacity }}</div>
-        <div>Current Capacity: {{ selectedMarker?.currentCap }}</div>
+      <div v-show="showCameraOverlay" class="camera-overlay">
+        <video ref="videoRef" autoplay muted playsinline></video>
+        <canvas ref="canvasRef"></canvas>
+        <p>{{ infoText }}</p>
       </div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from "vue-router";
-import { ref, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, onMounted } from "vue";
 import {
   IonPage,
   IonHeader,
@@ -44,117 +24,53 @@ import {
   IonContent,
 } from "@ionic/vue";
 import mapboxgl from "mapbox-gl";
+import { updateDoc, doc } from "firebase/firestore";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { initializeApp } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  query,
-  updateDoc,
-  doc,
-} from "firebase/firestore/lite";
-import { getAuth } from "firebase/auth";
-import { Camera, CameraResultType } from "@capacitor/camera";
-import { Geolocation } from "@capacitor/geolocation";
-import { Dialog } from "@capacitor/dialog";
+import { db } from "@/firebase.js"; // Adjust the path to point to your firebase.js file
+import { collection, getDocs, query } from "firebase/firestore";
 
 interface Marker {
   stationNumber: string;
+  latitude: number;
+  longitude: number;
+  [key: string]: any;
   placeName: string;
   address: string;
   capacity: number;
   currentCap: number;
-  latitude: number;
-  longitude: number;
 }
 
-const firebaseConfig = {
-  apiKey: "AIzaSyB3KjQPSVjw0PTwn1AkKdPLlW6yyom3_GE",
-  authDomain: "wifiyer.firebaseapp.com",
-  projectId: "wifiyer",
-  storageBucket: "wifiyer.appspot.com",
-  messagingSenderId: "409869290584",
-  appId: "1:409869290584:web:36bf46c2e3ecb098610e2d",
-  measurementId: "G-7GLD6P4N2G",
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth();
+const markers = ref<Marker[]>([]);
+const areMarkersLoaded = ref(false);
+const showCameraOverlay = ref(false);
+const videoRef = ref(null);
+const canvasRef = ref(null);
+const infoText = ref("ppp");
+let currentMarker = ref(null);
 
-const router = useRouter();
-let markers = ref<Marker[]>([]);
-let showOverlay = ref(false);
-let selectedMarker = ref<Marker | null>(null);
-
-let video = ref<HTMLVideoElement | null>(null);
-let canvas = ref<HTMLCanvasElement | null>(null);
-let info = ref<HTMLElement | null>(null);
-
-let showCameraOverlay = ref(false);
-
-// Expose the showCameraOverlay ref to the template
-defineExpose({ showCameraOverlay });
-
-let intervalId: NodeJS.Timeout | null = null;
-
-const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
-const predictionURL =
-  "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
-
-onMounted(async () => {
-  console.log("onMounted is executed");
-
-  async function takePicture() {
-    try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: true,
-        resultType: CameraResultType.Uri,
-      });
-
-      console.log("Camera photo URI:", image.webPath);
-    } catch (error) {
-      console.error("Error taking picture", error);
-    }
+async function loadMarkers() {
+  try {
+    const q = query(collection(db, "stations"));
+    const querySnapshot = await getDocs(q);
+    markers.value = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        stationNumber: doc.id,
+        ...data,
+        latitude: data.coordinates?.[0] ?? 0,
+        longitude: data.coordinates?.[1] ?? 0,
+        placeName: data.placeName ?? "",
+        address: data.address ?? "",
+        currentCap: data.currentCap ?? 0, // Provide a default value
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching markers:", error);
   }
+}
+window.recycleBottle = recycleBottle;
 
-  takePicture();
-
-  async function requestLocationPermission() {
-    try {
-      const coordinates = await Geolocation.getCurrentPosition();
-      console.log("Current position:", coordinates);
-    } catch (error) {
-      console.error("Error requesting location permission", error);
-    }
-  }
-  requestLocationPermission();
-
-  await loadMarkers();
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const userLocation = [
-        position.coords.longitude,
-        position.coords.latitude,
-      ];
-      initMap(userLocation);
-    },
-    () => {
-      console.warn(
-        "Could not retrieve user location. Defaulting to coordinates [0, 0]."
-      );
-      initMap([0, 0]);
-    }
-  );
-});
-
-Dialog.alert({
-  title: "Test Alert",
-  message: "This is a test alert",
-});
-
-function initMap(centerCoordinates: [number, number]) {
+function initMap(centerCoordinates: [number, number] = [0, 0]) {
   console.log("initMap is executed with coordinates", centerCoordinates);
 
   mapboxgl.accessToken =
@@ -182,214 +98,138 @@ function initMap(centerCoordinates: [number, number]) {
   map.addControl(geolocate);
 
   map.on("load", () => {
-    addMarkersToMap(map);
-
     // Automatically trigger the geolocation control to get the user's location
     geolocate.trigger();
+
+    // Add markers to the map
+    markers.value.forEach((marker) => {
+      new mapboxgl.Marker()
+        .setLngLat([marker.longitude, marker.latitude])
+        .setPopup(
+          new mapboxgl.Popup({ offset: 25 }) // add popups
+            .setHTML(
+              `<div style="color: black;">
+                <h3>${marker.placeName}</h3>
+                <p>${marker.address}</p>
+                <p>Current Capacity: ${marker.currentCap}</p>
+                <p>Station Number: ${marker.stationNumber}</p>
+<button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
+              </div>`
+            )
+        )
+        .addTo(map)
+        .on("click", () => {
+          currentMarker = marker; // set the current marker when a marker is clicked
+        });
+    });
   });
 }
 
-function addMarkersToMap(map: mapboxgl.Map) {
-  markers.value.forEach((marker) => {
-    const el = document.createElement("div");
-    el.className = "marker";
-    const popup = new mapboxgl.Popup({ offset: 25, className: "my-popup" })
-      .setHTML(
-        `<div style="color: black;"><h3>ID: ${marker.stationNumber}</h3><h5>Address: ${marker.address}</h5><h5>Place Name: ${marker.placeName}</h5><h5>Capacity: ${marker.currentCap} %</h5></div><button id="recycle-button">Recycle</button>`
-      )
-      .on("open", () => {
-        selectedMarker.value = marker; // Set the selectedMarker here
-        document
-          .getElementById("recycle-button")
-          ?.addEventListener("click", onRecycleClick);
-      });
-
-    new mapboxgl.Marker(el)
-      .setLngLat([marker.longitude, marker.latitude])
-      .addTo(map)
-      .setPopup(popup)
-      .on("click", () => {
-        selectedMarker.value = marker;
-        showOverlay.value = true;
-      });
-  });
-}
-
-async function loadMarkers() {
-  try {
-    const q = query(collection(db, "stations"));
-    const querySnapshot = await getDocs(q);
-    markers.value = querySnapshot.docs.map(
-      (doc) =>
-        ({
-          stationNumber: doc.id,
-          ...doc.data(),
-          latitude: doc.data().coordinates[0],
-          longitude: doc.data().coordinates[1],
-        } as Marker)
-    );
-
-    if (selectedMarker.value) {
-      const updatedSelectedMarker = markers.value.find(
-        (marker) => marker.stationNumber === selectedMarker.value.stationNumber
-      );
-      if (updatedSelectedMarker) {
-        selectedMarker.value = { ...updatedSelectedMarker };
-      }
-    }
-  } catch (error) {
-    console.error("Error fetching markers: ", error);
-  }
-}
-
-function hideCameraOverlay() {
-  showCameraOverlay.value = false;
-  // Here you can also clear any intervals and stop the video stream if necessary
-  if (intervalId) {
-    clearInterval(intervalId);
-  }
-  if (video.value && video.value.srcObject) {
-    const tracks = video.value.srcObject.getTracks();
-    tracks.forEach((track) => track.stop());
-  }
-}
-
-function closeOverlay() {
-  showOverlay.value = false;
-}
-
-function onRecycleClick() {
-  const currentUser = auth.currentUser;
-
-  // if (!currentUser) {
-  //   // Redirect to login page if user is not logged in
-  //   router.push("login");
-  //   return;
-  // }
-  console.log("Recycle button clicked with marker", selectedMarker.value);
-  showCameraOverlay.value = true;
-  nextTick(() => {
-    initCameraAndPrediction();
-  });
-}
-
-function initCameraAndPrediction() {
-  if (!video.value || !canvas.value) {
-    console.error("Video or canvas element is not available");
+async function recycleBottle(stationNumber) {
+  const marker = markers.value.find((m) => m.stationNumber === stationNumber);
+  if (!marker) {
+    console.error("Marker not found");
     return;
   }
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices
-      .getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-        },
-      })
-      .then((stream) => {
-        video.value.srcObject = stream;
-        video.value.onloadedmetadata = () => {
-          video.value.play();
-        };
-      })
-      .catch((error) => {
-        console.error("Error accessing camera:", error);
-      });
+
+  showCameraOverlay.value = true;
+
+  const video = videoRef.value;
+  const canvas = canvasRef.value;
+  const context = canvas.getContext("2d");
+
+  const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
+  const predictionURL =
+    "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration18/image";
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: "environment",
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+      },
+    });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      video.play();
+    };
+  } catch (error) {
+    console.error("Error accessing camera:", error);
+    alert("Camera error: " + error.message);
+    return;
   }
 
-  video.value.addEventListener("play", async () => {
+  video.addEventListener("play", () => {
     const draw = () => {
-      canvas.value
-        .getContext("2d")
-        .drawImage(video.value, 0, 0, canvas.value.width, canvas.value.height);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
       requestAnimationFrame(draw);
     };
     draw();
 
-    intervalId = setInterval(async () => {
-      canvas.value.toBlob(
+    let isCurrentCapUpdated = false;
+
+    const intervalId = setInterval(async () => {
+      canvas.toBlob(
         async (blob) => {
-          fetch(predictionURL, {
-            method: "POST",
-            headers: {
-              "Prediction-Key": predictionKey,
-              "Content-Type": "application/octet-stream",
-            },
-            body: blob,
-          })
-            .then((response) => response.json())
-            .then(async (data) => {
-              let recycledPrediction = data.predictions.find(
+          try {
+            const response = await fetch(predictionURL, {
+              method: "POST",
+              headers: {
+                "Prediction-Key": predictionKey,
+                "Content-Type": "application/octet-stream",
+              },
+              body: blob,
+            });
+            const data = await response.json();
+            console.log(data);
+
+            if (data.predictions && data.predictions.length > 0) {
+              const recycledPrediction = data.predictions.find(
                 (p) => p.tagName === "recycled"
               );
-              let recycledPrediction_off = data.predictions.find(
+              const recycledPrediction_off = data.predictions.find(
                 (p) => p.tagName === "OffPosition"
               );
-              let recycledPrediction_on = data.predictions.find(
+              const recycledPrediction_on = data.predictions.find(
                 (p) => p.tagName === "on-position"
               );
 
               if (recycledPrediction && recycledPrediction.probability > 0.8) {
-                alert("bottle is recycled");
-                document.getElementById("steps").innerHTML = "Recycled";
+                clearInterval(intervalId);
+                showCameraOverlay.value = true;
+                console.log("Bottle is recycled");
+                isCurrentCapUpdated = true;
 
-                console.log(
-                  "Selected marker before increment",
-                  selectedMarker.value
-                );
+                // Update marker capacity
+                marker.currentCap += 1;
 
-                // Increase the currentCap by 1
-                selectedMarker.value.currentCap += 1;
-                console.log(
-                  "CurrentCap after increment: ",
-                  selectedMarker.value.currentCap,
-                  alert("increased")
-                );
-
-                // Check if the currentCap equals the capacity of the selectedMarker
-                if (
-                  selectedMarker.value.currentCap >=
-                  selectedMarker.value.capacity
-                ) {
-                  alert("This station is full");
-                }
-
-                // Update the currentCap in Firestore
+                // Update the currentCap in the Firestore database
                 try {
-                  const markerDoc = doc(
-                    db,
-                    "stations",
-                    selectedMarker.value.stationNumber
-                  );
-                  await updateDoc(markerDoc, {
-                    currentCap: selectedMarker.value.currentCap,
+                  const markerRef = doc(db, "stations", stationNumber);
+                  await updateDoc(markerRef, {
+                    currentCap: marker.currentCap,
                   });
-                  console.log(
-                    "CurrentCap after attempted update: ",
-                    selectedMarker.value.currentCap
+                } catch (error) {
+                  console.error(
+                    "Error updating capacity in the database",
+                    error
                   );
-                  // Fetch the fresh data from Firestore after update
-                  await loadMarkers();
-                } catch (e) {
-                  console.error("Error updating document: ", e);
-                  alert("Error updating document: " + e.message);
+                  alert("Failed to update capacity in the database");
                 }
               } else if (
                 recycledPrediction_on &&
                 recycledPrediction_on.probability > 0.8
               ) {
-                document.getElementById("steps").innerHTML =
-                  "You can now let it go";
+                infoText.value = "Drop your bottle";
+                alert("You can now let it go");
               } else {
-                document.getElementById("steps").innerHTML =
-                  "Place your bottle top of the hole";
+                infoText.value = "Place your bottle top of the hole";
               }
-
-              // console.log(data);
-              // Handle the data returned from the API (update info.value with relevant data)
-            })
-            .catch((error) => console.error(error));
+            }
+          } catch (error) {
+            console.error(error);
+          }
         },
         "image/jpeg",
         0.8
@@ -398,10 +238,10 @@ function initCameraAndPrediction() {
   });
 }
 
-onUnmounted(() => {
-  if (intervalId) {
-    clearInterval(intervalId);
-  }
+onMounted(() => {
+  loadMarkers().then(() => {
+    initMap();
+  });
 });
 </script>
 
@@ -506,5 +346,24 @@ onUnmounted(() => {
   height: 100%;
   position: absolute;
   z-index: 100;
+}
+
+.camera-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+video,
+canvas {
+  max-width: 100%;
+  border: 1px solid black;
 }
 </style>
