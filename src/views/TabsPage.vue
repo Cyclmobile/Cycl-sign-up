@@ -37,13 +37,5 @@ import {
   IonPage,
   IonRouterOutlet,
 } from "@ionic/vue";
-import {
-  book,
-  ellipse,
-  gift,
-  home,
-  settings,
-  square,
-  triangle,
-} from "ionicons/icons";
+import { book, gift, home, settings } from "ionicons/icons";
 </script>

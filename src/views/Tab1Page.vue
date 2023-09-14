@@ -34,6 +34,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from "vue-router";
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import {
   IonPage,
@@ -52,6 +53,10 @@ import {
   updateDoc,
   doc,
 } from "firebase/firestore/lite";
+import { getAuth } from "firebase/auth";
+import { Camera, CameraResultType } from "@capacitor/camera";
+import { Geolocation } from "@capacitor/geolocation";
+import { Dialog } from "@capacitor/dialog";
 
 interface Marker {
   stationNumber: string;
@@ -74,7 +79,9 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth();
 
+const router = useRouter();
 let markers = ref<Marker[]>([]);
 let showOverlay = ref(false);
 let selectedMarker = ref<Marker | null>(null);
@@ -95,6 +102,32 @@ const predictionURL =
   "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
 
 onMounted(async () => {
+  async function takePicture() {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: true,
+        resultType: CameraResultType.Uri,
+      });
+
+      console.log("Camera photo URI:", image.webPath);
+    } catch (error) {
+      console.error("Error taking picture", error);
+    }
+  }
+
+  takePicture();
+
+  async function requestLocationPermission() {
+    try {
+      const coordinates = await Geolocation.getCurrentPosition();
+      console.log("Current position:", coordinates);
+    } catch (error) {
+      console.error("Error requesting location permission", error);
+    }
+  }
+  requestLocationPermission();
+
   await loadMarkers();
   navigator.geolocation.getCurrentPosition(
     (position) => {
@@ -113,9 +146,14 @@ onMounted(async () => {
   );
 });
 
+Dialog.alert({
+  title: "Test Alert",
+  message: "This is a test alert",
+});
+
 function initMap(centerCoordinates: [number, number]) {
   mapboxgl.accessToken =
-    "pk.eyJ1IjoiY3ljbG1vYmlsZWFwcCIsImEiOiJja3lxODBqYmwwYW10Mnd0Z2dxdDZxZGF2In0.ElRjKCz4QVFOQ8l_0hJjSw";
+    "pk.eyJ1IjoiY3ljbG1vYmlsZWFwcCIsImEiOiJja3lxODRlOHQwMGR0MnhzMHd3YXl3OTVxIn0.Gg2Zqy13hJU5iDUuV_F2Zg";
 
   const map = new mapboxgl.Map({
     container: "map",
@@ -216,6 +254,13 @@ function closeOverlay() {
 }
 
 function onRecycleClick() {
+  const currentUser = auth.currentUser;
+
+  // if (!currentUser) {
+  //   // Redirect to login page if user is not logged in
+  //   router.push("login");
+  //   return;
+  // }
   console.log("Recycle button clicked with marker", selectedMarker.value);
   showCameraOverlay.value = true;
   nextTick(() => {
@@ -449,5 +494,12 @@ onUnmounted(() => {
   font-size: 20px;
   color: #ffffff;
   cursor: pointer;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  z-index: 100;
 }
 </style>

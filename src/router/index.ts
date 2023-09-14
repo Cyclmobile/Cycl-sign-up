@@ -31,6 +31,16 @@ const routes: Array<RouteRecordRaw> = [
         path: "tab4",
         component: () => import("@/views/Tab4Page.vue"),
       },
+
+      {
+        path: "login",
+        component: () => import("@/views/TabLogin.vue"),
+      },
+
+      {
+        path: "signup",
+        component: () => import("@/views/Signup.vue"),
+      },
     ],
   },
 ];
