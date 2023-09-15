@@ -10,12 +10,17 @@
         <canvas ref="canvasRef" v-show="false"></canvas>
         <p>{{ infoText }}</p>
       </div>
+      <div v-if="showBarcodeOverlay" class="barcode-overlay">
+        <div id="interactive" class="viewport"></div>
+        <div id="scanner-container"></div>
+        <button @click="toggleBarcodeOverlay">Close Scanner</button>
+      </div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import {
   IonPage,
   IonHeader,
@@ -24,10 +29,11 @@ import {
   IonContent,
 } from "@ionic/vue";
 import mapboxgl from "mapbox-gl";
-import { updateDoc, doc } from "firebase/firestore";
+import { updateDoc, doc, getDoc } from "firebase/firestore";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { db } from "@/firebase.js"; // Adjust the path to point to your firebase.js file
 import { collection, getDocs, query } from "firebase/firestore";
+import Quagga from "quagga";
 
 interface Marker {
   stationNumber: string;
@@ -47,6 +53,7 @@ const videoRef = ref(null);
 const canvasRef = ref(null);
 const infoText = ref("");
 let currentMarker = ref(null);
+const showBarcodeOverlay = ref(false);
 
 async function loadMarkers() {
   try {
@@ -78,7 +85,7 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
 
   const map = new mapboxgl.Map({
     container: "map",
-    style: "mapbox://styles/mapbox/streets-v11",
+    style: "mapbox://styles/mapbox/outdoors-v12",
     center: centerCoordinates,
     zoom: 10,
   });
@@ -117,129 +124,227 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
               <h6>Location: ${marker.placeName}</h6>
               <h6>address:${marker.address}</h6>
               <h6>Full: ${marker.currentCap}</h6>
-  <button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
+<button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
             </div>`
             )
         )
         .addTo(map)
         .on("click", () => {
           currentMarker = marker; // set the current marker when a marker is clicked
+          console.log("Current marker set:", currentMarker.value);
         });
     });
   });
 }
 
 async function recycleBottle(stationNumber) {
+  if (!stationNumber) {
+    console.error("No stationNumber provided.");
+    return;
+  }
+
   const marker = markers.value.find((m) => m.stationNumber === stationNumber);
   if (!marker) {
     console.error("Marker not found");
     return;
   }
 
-  showCameraOverlay.value = true;
+  showBarcodeOverlay.value = true;
 
-  const video = videoRef.value;
-  const canvas = canvasRef.value;
-  const context = canvas.getContext("2d");
-
-  const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
-  //get link from firestore
-  const predictionURL =
-    "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: "environment",
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-      },
-    });
-    video.srcObject = stream;
-    video.onloadedmetadata = () => {
-      video.play();
-    };
-  } catch (error) {
-    console.error("Error accessing camera:", error);
-    alert("Camera error: " + error.message);
-    return;
-  }
-
-  video.addEventListener("play", () => {
-    const draw = () => {
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      requestAnimationFrame(draw);
-    };
-    draw();
-
-    let isCurrentCapUpdated = false;
-
-    const intervalId = setInterval(async () => {
-      canvas.toBlob(
-        async (blob) => {
-          try {
-            const response = await fetch(predictionURL, {
-              method: "POST",
-              headers: {
-                "Prediction-Key": predictionKey,
-                "Content-Type": "application/octet-stream",
-              },
-              body: blob,
-            });
-            const data = await response.json();
-            console.log(data);
-
-            if (data.predictions && data.predictions.length > 0) {
-              const recycledPrediction = data.predictions.find(
-                (p) => p.tagName === "recycled"
-              );
-              const recycledPrediction_off = data.predictions.find(
-                (p) => p.tagName === "OffPosition"
-              );
-              const recycledPrediction_on = data.predictions.find(
-                (p) => p.tagName === "on-position"
-              );
-
-              if (recycledPrediction && recycledPrediction.probability > 0.8) {
-                clearInterval(intervalId);
-                showCameraOverlay.value = true;
-                console.log("Bottle is recycled");
-                infoText.value = "Bottle recycled";
-                isCurrentCapUpdated = true;
-
-                // Update marker capacity
-                marker.currentCap += 1;
-
-                // Update the currentCap in the Firestore database
-                try {
-                  const markerRef = doc(db, "stations", stationNumber);
-                  await updateDoc(markerRef, {
-                    currentCap: marker.currentCap,
-                  });
-                } catch (error) {
-                  console.error(
-                    "Error updating capacity in the database",
-                    error
-                  );
-                  alert("Failed to update capacity in the database");
-                }
-              } else if (
-                recycledPrediction_on &&
-                recycledPrediction_on.probability > 0.8
-              ) {
-                infoText.value = "Drop your bottle";
-              } else {
-                infoText.value = "Place your bottle top of the hole";
-              }
-            }
-          } catch (error) {
-            console.error(error);
-          }
+  nextTick(async () => {
+    try {
+      await Quagga.init(
+        {
+          inputStream: {
+            type: "LiveStream",
+            constraints: {
+              width: 640,
+              height: 480,
+              facingMode: "environment",
+            },
+            target: document.querySelector("#scanner-container"),
+          },
+          locator: {
+            patchSize: "medium",
+            halfSample: true,
+          },
+          numOfWorkers: 4,
+          decoder: {
+            readers: ["code_128_reader"],
+          },
+          locate: true,
         },
-        "image/jpeg",
-        0.8
+        function (err) {
+          if (err) {
+            console.log(err);
+            return;
+          }
+          console.log("Initialization finished. Ready to start");
+          Quagga.start();
+        }
       );
-    }, 150);
+
+      Quagga.onDetected(async (data) => {
+        try {
+          const scannedCode = data.codeResult.code;
+
+          // Fetch valid codes from Firestore
+          const denmarkDocRef = doc(
+            db,
+            "Barcodes",
+            "Denmark",
+            "coca-cola",
+            "barcodes"
+          );
+          const norwayDocRef = doc(
+            db,
+            "Barcodes",
+            "Norway",
+            "coca-cola",
+            "barcodes"
+          );
+
+          const [denmarkDoc, norwayDoc] = await Promise.all([
+            getDoc(denmarkDocRef),
+            getDoc(norwayDocRef),
+          ]);
+
+          const denmarkCodes = denmarkDoc.data()?.codes || [];
+          const norwayCodes = norwayDoc.data()?.codes || [];
+
+          // Check if the scanned code is in the list of valid codes
+          if (
+            denmarkCodes.includes(scannedCode) ||
+            norwayCodes.includes(scannedCode)
+          ) {
+            console.log("Valid code");
+
+            // Proceed with your existing logic for a valid code
+            showBarcodeOverlay.value = false;
+            Quagga.stop();
+            showCameraOverlay.value = true;
+
+            const video = videoRef.value;
+            const canvas = canvasRef.value;
+            const context = canvas.getContext("2d");
+
+            const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
+            const predictionURL =
+              "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
+
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                  facingMode: "environment",
+                  width: { ideal: 640 },
+                  height: { ideal: 480 },
+                },
+              });
+              video.srcObject = stream;
+              video.onloadedmetadata = () => {
+                video.play();
+              };
+            } catch (error) {
+              console.error("Error accessing camera:", error);
+              alert("Camera error: " + error.message);
+              return;
+            }
+
+            video.addEventListener("play", () => {
+              const draw = () => {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                requestAnimationFrame(draw);
+              };
+              draw();
+
+              let isCurrentCapUpdated = false;
+
+              const intervalId = setInterval(async () => {
+                canvas.toBlob(
+                  async (blob) => {
+                    try {
+                      const response = await fetch(predictionURL, {
+                        method: "POST",
+                        headers: {
+                          "Prediction-Key": predictionKey,
+                          "Content-Type": "application/octet-stream",
+                        },
+                        body: blob,
+                      });
+                      const data = await response.json();
+                      console.log(data);
+
+                      if (data.predictions && data.predictions.length > 0) {
+                        const recycledPrediction = data.predictions.find(
+                          (p) => p.tagName === "recycled"
+                        );
+                        const recycledPrediction_off = data.predictions.find(
+                          (p) => p.tagName === "OffPosition"
+                        );
+                        const recycledPrediction_on = data.predictions.find(
+                          (p) => p.tagName === "on-position"
+                        );
+
+                        if (
+                          recycledPrediction &&
+                          recycledPrediction.probability > 0.8
+                        ) {
+                          clearInterval(intervalId);
+                          showCameraOverlay.value = true;
+                          console.log("Bottle is recycled");
+                          infoText.value = "Bottle recycled";
+                          isCurrentCapUpdated = true;
+
+                          // Update marker capacity
+                          marker.currentCap += 1;
+
+                          // Update the currentCap in the Firestore database
+                          try {
+                            const markerRef = doc(
+                              db,
+                              "stations",
+                              stationNumber
+                            );
+                            await updateDoc(markerRef, {
+                              currentCap: marker.currentCap,
+                            });
+                          } catch (error) {
+                            console.error(
+                              "Error updating capacity in the database",
+                              error
+                            );
+                            alert("Failed to update capacity in the database");
+                          }
+                        } else if (
+                          recycledPrediction_on &&
+                          recycledPrediction_on.probability > 0.8
+                        ) {
+                          infoText.value = "Drop your bottle";
+                        } else {
+                          infoText.value = "Place your bottle top of the hole";
+                        }
+                      }
+                    } catch (error) {
+                      console.error(error);
+                    }
+                  },
+                  "image/jpeg",
+                  0.8
+                );
+              }, 150);
+            });
+          } else {
+            console.log("Invalid code");
+            // Handle the invalid code case
+            // Perhaps you can show a message to the user indicating the code is invalid
+          }
+        } catch (error) {
+          console.error("Error verifying the barcode:", error);
+        }
+      });
+    } catch (error) {
+      console.error("Quagga initialization error:", error);
+    }
   });
 }
 
@@ -342,5 +447,36 @@ onMounted(() => {
   margin: 4px 2px;
   cursor: pointer;
   border-radius: 12px;
+}
+.barcode-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.viewport {
+  width: 640px;
+  height: 480px;
+  position: relative;
+}
+
+button {
+  margin-top: 20px;
+  padding: 10px;
+  font-size: 16px;
+}
+
+#scanner-container {
+  width: 640px;
+  height: 480px;
+  z-index: 100;
 }
 </style>
