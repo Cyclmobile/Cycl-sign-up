@@ -7,7 +7,7 @@
       <div id="map" style="width: 100%; height: 100%"></div>
       <div v-show="showCameraOverlay" class="camera-overlay">
         <video ref="videoRef" autoplay muted playsinline></video>
-        <canvas ref="canvasRef"></canvas>
+        <canvas ref="canvasRef" v-show="false"></canvas>
         <p>{{ infoText }}</p>
       </div>
     </ion-content>
@@ -45,7 +45,7 @@ const areMarkersLoaded = ref(false);
 const showCameraOverlay = ref(false);
 const videoRef = ref(null);
 const canvasRef = ref(null);
-const infoText = ref("ppp");
+const infoText = ref("");
 let currentMarker = ref(null);
 
 async function loadMarkers() {
@@ -103,18 +103,22 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
 
     // Add markers to the map
     markers.value.forEach((marker) => {
-      new mapboxgl.Marker()
+      // Create a new HTML element for each marker and apply the custom class
+      var el = document.createElement("div");
+      el.className = "custom-marker";
+
+      new mapboxgl.Marker(el)
         .setLngLat([marker.longitude, marker.latitude])
         .setPopup(
           new mapboxgl.Popup({ offset: 25 }) // add popups
             .setHTML(
               `<div style="color: black;">
-                <h3>${marker.placeName}</h3>
-                <p>${marker.address}</p>
-                <p>Current Capacity: ${marker.currentCap}</p>
-                <p>Station Number: ${marker.stationNumber}</p>
-<button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
-              </div>`
+                 <h3>ID: ${marker.stationNumber}</h3>
+              <h6>Location: ${marker.placeName}</h6>
+              <h6>address:${marker.address}</h6>
+              <h6>Full: ${marker.currentCap}</h6>
+  <button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
+            </div>`
             )
         )
         .addTo(map)
@@ -139,8 +143,9 @@ async function recycleBottle(stationNumber) {
   const context = canvas.getContext("2d");
 
   const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
+  //get link from firestore
   const predictionURL =
-    "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration18/image";
+    "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -199,6 +204,7 @@ async function recycleBottle(stationNumber) {
                 clearInterval(intervalId);
                 showCameraOverlay.value = true;
                 console.log("Bottle is recycled");
+                infoText.value = "Bottle recycled";
                 isCurrentCapUpdated = true;
 
                 // Update marker capacity
@@ -222,7 +228,6 @@ async function recycleBottle(stationNumber) {
                 recycledPrediction_on.probability > 0.8
               ) {
                 infoText.value = "Drop your bottle";
-                alert("You can now let it go");
               } else {
                 infoText.value = "Place your bottle top of the hole";
               }
@@ -246,72 +251,13 @@ onMounted(() => {
 </script>
 
 <style>
-.overlay {
-  position: fixed;
-  bottom: 0;
-  background-color: white; /* Light background for the card */
-  width: 90%; /* Reduced width with some spacing on the sides */
-  padding: 20px;
-  border-radius: 15px; /* Rounded corners for a softer appearance */
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* Box shadow for a "lifting" effect */
-  z-index: 1000;
-  margin: 20px; /* Margin to ensure the card does not stick to the edges of the viewport */
-  color: #333; /* Dark text color for contrast against the light background */
-}
-
-.overlay div {
-  margin-bottom: 10px;
-}
-
-.overlay button {
-  background-color: #65bc50; /* Using one of your palette colors for the close button */
-  border: none;
-  padding: 10px;
-  border-radius: 50%;
-  color: white;
-  font-size: 18px;
-}
-
-.my-popup {
-  max-width: 300px; /* Restricting the width to make the popup card-like */
-  background-color: white; /* Light background color */
-  border-radius: 15px; /* Rounded corners */
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* Box shadow for a "lifting" effect */
-  padding: 20px; /* Padding for a structured appearance */
-  color: #333; /* Dark text color */
-}
-
-.my-popup h3 {
-  color: #31b46f; /* Using your palette color for the title */
-  margin-bottom: 10px;
-}
-
-.my-popup p {
-  margin-bottom: 10px;
-}
-
-.my-popup button {
-  background-color: #65bc50; /* Using your palette color for the button */
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-}
-
-.my-popup button:hover {
-  background-color: #539a48; /* A slightly darker shade for the hover effect */
-}
-
-.marker {
+.custom-marker {
   background-image: url("/196.png");
   background-size: cover;
   width: 50px;
   height: 50px;
-  border-radius: 50%;
+  border-radius: 50%; /* Optional: for rounded markers */
   cursor: pointer;
-  z-index: 100;
-  border: 2px solid #65bc50; /* Using your palette color for the marker border */
 }
 
 .camera-overlay {
@@ -320,7 +266,7 @@ onMounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgba(49, 180, 111, 0.8);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -328,42 +274,73 @@ onMounted(() => {
   z-index: 1000;
 }
 
-.cross-out-btn {
+.camera-overlay h1 {
+  color: #65bc50;
+  font-size: 2em;
+  margin-bottom: 20px;
+  z-index: 1000;
+}
+
+.camera-overlay button {
+  background-color: #65bc50;
+  border: none;
+  color: white;
+  padding: 15px 30px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 12px;
+  z-index: 1000;
+}
+
+.camera-overlay .close-button {
   position: absolute;
   top: 20px;
   right: 20px;
-  background-color: #ff0000;
+  background-color: #31b46f;
   border: none;
-  border-radius: 50%;
+  color: white;
   padding: 10px;
   font-size: 20px;
-  color: #ffffff;
   cursor: pointer;
+  z-index: 1000;
 }
 
-#map {
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  z-index: 100;
+.mapboxgl-popup-content {
+  background-color: #31b46f !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+  padding: 15px !important;
 }
 
-.camera-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+.mapboxgl-popup-content h3 {
+  margin-top: 0;
+  color: #ffffff !important;
 }
 
-video,
-canvas {
-  max-width: 100%;
-  border: 1px solid black;
+.mapboxgl-popup-content h6 {
+  margin-top: 0;
+  color: #ffffff !important;
+}
+
+.mapboxgl-popup-content p {
+  color: #ffffff !important;
+}
+
+.mapboxgl-popup-content button {
+  background-color: #65bc50;
+  border: none;
+  color: white;
+  padding: 15px 30px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 12px;
 }
 </style>
