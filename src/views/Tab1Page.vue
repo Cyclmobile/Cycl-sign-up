@@ -102,6 +102,32 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
     zoom: 10,
   });
 
+  // Create a button and append it to the map container
+  const relocateBtn = document.createElement("button");
+  relocateBtn.innerHTML = "Recenter";
+  relocateBtn.style.position = "absolute";
+  relocateBtn.style.top = "10px";
+  relocateBtn.style.right = "10px";
+  relocateBtn.className = "relocate-button"; // Add a class to style the button through CSS
+  document.body.appendChild(relocateBtn);
+
+  // Function to re-center the map to the user's current location
+  function recenterMap() {
+    Geolocation.getCurrentPosition()
+      .then((resp) => {
+        map.flyTo({
+          center: [resp.coords.longitude, resp.coords.latitude],
+          essential: true,
+        });
+      })
+      .catch((error) => {
+        console.error("Error getting location", error);
+      });
+  }
+
+  // Attach the re-centering function to the button's click event
+  relocateBtn.addEventListener("click", recenterMap);
+
   map.on("load", () => {
     Geolocation.getCurrentPosition()
       .then((resp) => {
@@ -109,6 +135,15 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
           center: [resp.coords.longitude, resp.coords.latitude],
           essential: true,
         });
+
+        // Create a new HTML element for the user's location marker
+        var userLocationEl = document.createElement("div");
+        userLocationEl.className = "user-location-marker";
+
+        // Add a marker for the user's current location
+        new mapboxgl.Marker(userLocationEl)
+          .setLngLat([resp.coords.longitude, resp.coords.latitude])
+          .addTo(map);
 
         // Add markers to the map
         markers.value.forEach((marker) => {
@@ -122,12 +157,12 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
               new mapboxgl.Popup({ offset: 25 }) // add popups
                 .setHTML(
                   `<div style="color: black;">
-                   <h3>ID: ${marker.stationNumber}</h3>
-                <h6>Location: ${marker.placeName}</h6>
-                <h6>address:${marker.address}</h6>
-                <h6>Full: ${marker.currentCap}</h6>
-  <button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
-              </div>`
+                  <h3>ID: ${marker.stationNumber}</h3>
+                  <h6>Location: ${marker.placeName}</h6>
+                  <h6>address:${marker.address}</h6>
+                  <h6>Full: ${marker.currentCap}</h6>
+                  <button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
+                </div>`
                 )
             )
             .addTo(map)
@@ -525,5 +560,50 @@ button {
   width: 640px;
   height: 480px;
   z-index: 100;
+}
+
+.user-location-marker {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background-color: #1d72b8;
+  border: 2px solid #fff;
+  box-shadow: 0 0 5px #1d72b8;
+  position: relative;
+  z-index: 1000;
+}
+
+.user-location-marker::after {
+  content: "";
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(29, 114, 184, 0.3);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: pulse 2s infinite;
+  z-index: 1000;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.relocate-button {
+  padding: 10px;
+  background-color: #000;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
 }
 </style>
