@@ -1,160 +1,153 @@
 <template>
   <ion-page>
-    <ion-header> </ion-header>
-
-    <ion-content
-      :style="{ '--background': '#65bc50' }"
-      class="ion-padding"
-      fullscreen="true"
-    >
-      <div class="logo-container">
-        <img src="/196.png" alt="Logo" />
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Login</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="ion-padding">
+      <div class="social-login-options">
+        <ion-button @click="signInWithProvider('facebook')" expand="block">
+          <ion-icon :icon="logoFacebook" slot="start" />
+          Login with Facebook
+        </ion-button>
+        <ion-button @click="signInWithProvider('google')" expand="block">
+          <ion-icon :icon="logoGoogle" slot="start" />
+          Login with Google
+        </ion-button>
+        <ion-button @click="signInWithProvider('apple')" expand="block">
+          <ion-icon :icon="logoApple" slot="start" />
+          Login with Apple
+        </ion-button>
       </div>
-
-      <ion-card>
-        <ion-card-content>
-          <div class="social-login-container">
-            <ion-button
-              expand="full"
-              :style="{ '--background': '#4285F4' }"
-              @click="loginWithGoogle"
-              >Login with Google</ion-button
-            >
-            <ion-button
-              expand="full"
-              :style="{ '--background': '#000000' }"
-              @click="loginWithApple"
-              >Login with Apple</ion-button
-            >
-            <ion-button
-              expand="full"
-              :style="{ '--background': '#3b5998' }"
-              @click="loginWithFacebook"
-              >Login with Facebook</ion-button
-            >
-          </div>
-
-          <div class="or-container">
-            <span>or</span>
-          </div>
-
-          <ion-item>
-            <ion-label position="floating">Email</ion-label>
-            <ion-input v-model="email"></ion-input>
-          </ion-item>
-
-          <ion-item>
-            <ion-label position="floating">Password</ion-label>
-            <ion-input type="password" v-model="password"></ion-input>
-          </ion-item>
-
-          <ion-button
-            expand="full"
-            @click="login"
-            :style="{ '--background': '#31b46f' }"
-            >Login</ion-button
-          >
-          <p class="signup-text">
-            Don't have an account?
-            <router-link to="signup">Sign up</router-link>
-          </p>
-        </ion-card-content>
-      </ion-card>
+      <p class="or-text">OR</p>
+      <form @submit.prevent="loginWithEmail">
+        <ion-item>
+          <ion-label>Email</ion-label>
+          <ion-input v-model="email" type="email"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label>Password</ion-label>
+          <ion-input v-model="password" type="password"></ion-input>
+        </ion-item>
+        <ion-button type="submit" expand="block">Login with Email</ion-button>
+      </form>
     </ion-content>
   </ion-page>
 </template>
 
-<script>
-import { ref } from "vue";
-import app from "@/firebase.js"; // Import the initialized Firebase app
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth"; // <-- make sure to import this method
-import { getFirestore, doc, setDoc } from "firebase/firestore";
+<!-- <script lang="ts">
+import {
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
+  IonItem,
+  IonLabel,
+  IonInput,
+  IonButton,
+  IonIcon,
+} from "@ionic/vue";
+import { defineComponent, ref, onMounted } from "vue";
+import {
+  signInWithRedirect,
+  signInWithEmailAndPassword,
+  getRedirectResult,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  OAuthProvider,
+} from "firebase/auth";
+import { logoFacebook, logoGoogle, logoApple } from "ionicons/icons";
+import { auth } from "firebase/auth";
+import { useRouter } from "vue-router";
 
-export default {
+export default defineComponent({
+  components: {
+    IonPage,
+    IonHeader,
+    IonToolbar,
+    IonTitle,
+    IonContent,
+    IonItem,
+    IonLabel,
+    IonInput,
+    IonButton,
+    IonIcon,
+  },
   setup() {
     const email = ref("");
     const password = ref("");
+    const router = useRouter();
 
-    const login = async () => {
+    const signInWithProvider = async (providerName) => {
+      let provider;
+      if (providerName === "facebook") {
+        provider = new FacebookAuthProvider();
+      } else if (providerName === "google") {
+        provider = new GoogleAuthProvider();
+      } else if (providerName === "apple") {
+        provider = new OAuthProvider("apple.com");
+      } else {
+        console.error("Invalid provider name");
+        return;
+      }
+
       try {
-        const auth = getAuth();
-        await signInWithEmailAndPassword(auth, email.value, password.value);
-        console.log("Login successful");
+        await signInWithRedirect(auth, provider);
       } catch (error) {
-        console.error("Login failed: ", error);
+        console.error("Error signing in:", error);
       }
     };
 
-    const loginWithGoogle = () => {
-      console.log("Login with Google");
-      // Implement Google login
+    const loginWithEmail = async () => {
+      try {
+        await signInWithEmailAndPassword(auth, email.value, password.value);
+        router.push("/tabs/tab1");
+      } catch (error) {
+        console.error("Error signing in with email:", error);
+        alert(error.message);
+      }
     };
 
-    const loginWithApple = () => {
-      console.log("Login with Apple");
-      // Implement Apple login
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result.user) {
+          router.push("/tabs/tab1");
+        }
+      } catch (error) {
+        console.error("Error from redirect:", error);
+      }
     };
 
-    const loginWithFacebook = () => {
-      console.log("Login with Facebook");
-      // Implement Facebook login
-    };
+    onMounted(() => {
+      handleRedirectResult();
+    });
 
     return {
       email,
       password,
-      login,
-      loginWithGoogle,
-      loginWithApple,
-      loginWithFacebook,
+      signInWithProvider,
+      loginWithEmail,
+      logoFacebook,
+      logoGoogle,
+      logoApple,
     };
   },
-};
-</script>
+});
+</script> -->
 
-<style>
-.ion-card {
-  background-color: white;
-  border-radius: 15px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  margin: auto;
-  max-width: 400px;
-  width: 100%;
-}
-
-.logo-container {
-  text-align: center;
-  padding: 20px;
+<style scoped>
+.social-login-options {
+  display: flex;
+  flex-direction: column;
   margin-bottom: 20px;
 }
 
-.logo-container img {
-  max-width: 150px;
-  height: auto;
-}
-
-.social-login-container ion-button {
-  margin-bottom: 10px;
-}
-
-.or-container {
+.or-text {
   text-align: center;
-  margin: 20px 0;
-  font-size: 14px;
-  color: #888;
-}
-
-.signup-text {
-  text-align: center;
-  margin-top: 10px;
-  color: #888;
-}
-
-.signup-text a {
-  color: #31b46f;
-}
-.toolbar-logo {
-  max-width: 150px;
-  height: auto;
+  margin-bottom: 20px;
+  font-weight: bold;
 }
 </style>

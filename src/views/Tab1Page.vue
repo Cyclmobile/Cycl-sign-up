@@ -1,6 +1,5 @@
 <template>
   <ion-page>
-    <ion-header> </ion-header>
     <ion-content :fullscreen="true">
       <ion-header collapse="condense"> </ion-header>
 
@@ -43,6 +42,7 @@ import {
   query,
   getFirestore,
 } from "firebase/firestore";
+import { Geolocation } from "@capacitor/geolocation";
 
 import Quagga from "quagga";
 
@@ -102,54 +102,58 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
     zoom: 10,
   });
 
-  // Add geolocation controls to the map.
-  const geolocate = new mapboxgl.GeolocateControl({
-    positionOptions: {
-      enableHighAccuracy: true,
-    },
-    trackUserLocation: true,
-    showUserLocation: true,
-    fitBoundsOptions: {
-      maxZoom: 15,
-    },
-  });
-
-  map.addControl(geolocate);
-
   map.on("load", () => {
-    // Automatically trigger the geolocation control to get the user's location
-    geolocate.trigger();
-
-    // Add markers to the map
-    markers.value.forEach((marker) => {
-      // Create a new HTML element for each marker and apply the custom class
-      var el = document.createElement("div");
-      el.className = "custom-marker";
-
-      new mapboxgl.Marker(el)
-        .setLngLat([marker.longitude, marker.latitude])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 25 }) // add popups
-            .setHTML(
-              `<div style="color: black;">
-                 <h3>ID: ${marker.stationNumber}</h3>
-              <h6>Location: ${marker.placeName}</h6>
-              <h6>address:${marker.address}</h6>
-              <h6>Full: ${marker.currentCap}</h6>
-<button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
-            </div>`
-            )
-        )
-        .addTo(map)
-        .on("click", () => {
-          currentMarker = marker; // set the current marker when a marker is clicked
-          console.log("Current marker set:", currentMarker.value);
+    Geolocation.getCurrentPosition()
+      .then((resp) => {
+        map.flyTo({
+          center: [resp.coords.longitude, resp.coords.latitude],
+          essential: true,
         });
-    });
+
+        // Add markers to the map
+        markers.value.forEach((marker) => {
+          // Create a new HTML element for each marker and apply the custom class
+          var el = document.createElement("div");
+          el.className = "custom-marker";
+
+          new mapboxgl.Marker(el)
+            .setLngLat([marker.longitude, marker.latitude])
+            .setPopup(
+              new mapboxgl.Popup({ offset: 25 }) // add popups
+                .setHTML(
+                  `<div style="color: black;">
+                   <h3>ID: ${marker.stationNumber}</h3>
+                <h6>Location: ${marker.placeName}</h6>
+                <h6>address:${marker.address}</h6>
+                <h6>Full: ${marker.currentCap}</h6>
+  <button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
+              </div>`
+                )
+            )
+            .addTo(map)
+            .on("click", () => {
+              currentMarker = marker; // set the current marker when a marker is clicked
+              console.log("Current marker set:", currentMarker.value);
+            });
+        });
+      })
+      .catch((error) => {
+        console.error("Error getting location", error);
+      });
   });
 }
 
 async function recycleBottle(stationNumber) {
+  // Get the currently logged-in user
+  const auth = getAuth(app);
+  // Get the currently logged-in user
+  const user = auth.currentUser;
+
+  if (!user) {
+    // Redirect to login if the user is not logged in
+    router.push("login"); // Adjust with your router setup
+    return;
+  }
   if (!stationNumber) {
     console.error("No stationNumber provided.");
     return;
@@ -332,12 +336,6 @@ async function recycleBottle(stationNumber) {
                           const auth = getAuth(app);
                           // Get the currently logged-in user
                           const user = auth.currentUser;
-
-                          if (!user) {
-                            // Redirect to login if the user is not logged in
-                            router.push("login"); // Adjust with your router setup
-                            return;
-                          }
 
                           // User is logged in, proceed to update the Cycl-coins
                           try {
