@@ -26,5 +26,5 @@
     "src/**/*.vue",
     "src/**/*.d.ts",
     "node_modules/mapbox-gl/dist/mapbox-gl.js"
-  ]
+, "src/firebase.js"  ]
 }

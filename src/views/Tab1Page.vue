@@ -20,6 +20,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from "vue-router";
 import { ref, onMounted, nextTick } from "vue";
 import {
   IonPage,
@@ -29,10 +30,20 @@ import {
   IonContent,
 } from "@ionic/vue";
 import mapboxgl from "mapbox-gl";
-import { updateDoc, doc, getDoc } from "firebase/firestore";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { db } from "@/firebase.js"; // Adjust the path to point to your firebase.js file
-import { collection, getDocs, query } from "firebase/firestore";
+import { app, db } from "@/firebase.js";
+import { getAuth } from "firebase/auth";
+import {
+  doc,
+  updateDoc,
+  setDoc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  getFirestore,
+} from "firebase/firestore";
+
 import Quagga from "quagga";
 
 interface Marker {
@@ -54,6 +65,7 @@ const canvasRef = ref(null);
 const infoText = ref("");
 let currentMarker = ref(null);
 const showBarcodeOverlay = ref(false);
+const router = useRouter();
 
 async function loadMarkers() {
   try {
@@ -315,13 +327,50 @@ async function recycleBottle(stationNumber) {
                             );
                             alert("Failed to update capacity in the database");
                           }
+
+                          // Get the currently logged-in user
+                          const auth = getAuth(app);
+                          // Get the currently logged-in user
+                          const user = auth.currentUser;
+
+                          if (!user) {
+                            // Redirect to login if the user is not logged in
+                            router.push("login"); // Adjust with your router setup
+                            return;
+                          }
+
+                          // User is logged in, proceed to update the Cycl-coins
+                          try {
+                            const userDocRef = doc(db, "users", user.uid); // Adjust "users" to your users collection name
+                            const userDoc = await getDoc(userDocRef);
+
+                            if (userDoc.exists()) {
+                              // If the user document exists, get the current Cycl-coins value
+                              const userData = userDoc.data();
+                              let cyclCoins = userData?.CyclCoins || 0;
+
+                              // Increment the Cycl-coins by a certain amount
+                              cyclCoins += 2;
+
+                              // Update the user's Cycl-coins in the database
+                              await updateDoc(userDocRef, {
+                                CyclCoins: cyclCoins,
+                              });
+                            } else {
+                              // If the user document does not exist, create it with Cycl-coins set to a certain amount
+                              await setDoc(userDocRef, { CyclCoins: 2 });
+                            }
+                          } catch (error) {
+                            console.error("Error updating Cycl-coins:", error);
+                          }
                         } else if (
                           recycledPrediction_on &&
                           recycledPrediction_on.probability > 0.8
                         ) {
                           infoText.value = "Drop your bottle";
                         } else {
-                          infoText.value = "Place your bottle top of the hole";
+                          infoText.value =
+                            "Place your bottle on top of the hole";
                         }
                       }
                     } catch (error) {
@@ -451,15 +500,15 @@ onMounted(() => {
 .barcode-overlay {
   position: fixed;
   top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  left: 10%;
+  width: 80%;
+  height: 50%;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10;
 }
 
 .viewport {
