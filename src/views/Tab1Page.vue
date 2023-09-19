@@ -20,7 +20,7 @@
 
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { ref, onMounted, nextTick } from "vue";
+import { ref, onMounted, nextTick, onUnmounted } from "vue";
 import {
   IonPage,
   IonHeader,
@@ -66,6 +66,8 @@ const infoText = ref("");
 let currentMarker = ref(null);
 const showBarcodeOverlay = ref(false);
 const router = useRouter();
+let userLocationMarker; // Variable to store the user location marker
+let watcherId; // Variable to store the watcher ID
 
 async function loadMarkers() {
   try {
@@ -129,52 +131,59 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
   relocateBtn.addEventListener("click", recenterMap);
 
   map.on("load", () => {
-    Geolocation.getCurrentPosition()
-      .then((resp) => {
-        map.flyTo({
-          center: [resp.coords.longitude, resp.coords.latitude],
-          essential: true,
-        });
+    Geolocation.getCurrentPosition().then((resp) => {
+      map.flyTo({
+        center: [resp.coords.longitude, resp.coords.latitude],
+        essential: true,
+      });
 
-        // Create a new HTML element for the user's location marker
-        var userLocationEl = document.createElement("div");
-        userLocationEl.className = "user-location-marker";
+      // Create a new HTML element for the user's location marker
+      const userLocationEl = document.createElement("div");
+      userLocationEl.className = "user-location-marker";
 
-        // Add a marker for the user's current location
-        new mapboxgl.Marker(userLocationEl)
-          .setLngLat([resp.coords.longitude, resp.coords.latitude])
-          .addTo(map);
+      // Add a marker for the user's current location
+      userLocationMarker = new mapboxgl.Marker(userLocationEl)
+        .setLngLat([resp.coords.longitude, resp.coords.latitude])
+        .addTo(map);
 
-        // Add markers to the map
-        markers.value.forEach((marker) => {
-          // Create a new HTML element for each marker and apply the custom class
-          var el = document.createElement("div");
-          el.className = "custom-marker";
+      // Add markers to the map
+      markers.value.forEach((marker) => {
+        // Create a new HTML element for each marker and apply the custom class
+        var el = document.createElement("div");
+        el.className = "custom-marker";
 
-          new mapboxgl.Marker(el)
-            .setLngLat([marker.longitude, marker.latitude])
-            .setPopup(
-              new mapboxgl.Popup({ offset: 25 }) // add popups
-                .setHTML(
-                  `<div style="color: black;">
+        new mapboxgl.Marker(el)
+          .setLngLat([marker.longitude, marker.latitude])
+          .setPopup(
+            new mapboxgl.Popup({ offset: 25 }) // add popups
+              .setHTML(
+                `<div style="color: black;">
                   <h3>ID: ${marker.stationNumber}</h3>
                   <h6>Location: ${marker.placeName}</h6>
                   <h6>address:${marker.address}</h6>
                   <h6>Full: ${marker.currentCap}</h6>
                   <button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
                 </div>`
-                )
-            )
-            .addTo(map)
-            .on("click", () => {
-              currentMarker = marker; // set the current marker when a marker is clicked
-              console.log("Current marker set:", currentMarker.value);
-            });
-        });
-      })
-      .catch((error) => {
-        console.error("Error getting location", error);
+              )
+          )
+          .addTo(map)
+          .on("click", () => {
+            currentMarker = marker; // set the current marker when a marker is clicked
+            console.log("Current marker set:", currentMarker.value);
+          });
       });
+    });
+    watcherId = Geolocation.watchPosition({}, (position, err) => {
+      if (!err && position) {
+        // Update the user-location-marker's position
+        userLocationMarker.setLngLat([
+          position.coords.longitude,
+          position.coords.latitude,
+        ]);
+      }
+    }).catch((error) => {
+      console.error("Error getting location", error);
+    });
   });
 }
 
@@ -183,6 +192,7 @@ async function recycleBottle(stationNumber) {
   const auth = getAuth(app);
   // Get the currently logged-in user
   const user = auth.currentUser;
+  console.log(user);
 
   if (!user) {
     // Redirect to login if the user is not logged in
@@ -413,7 +423,7 @@ async function recycleBottle(stationNumber) {
                   "image/jpeg",
                   0.8
                 );
-              }, 150);
+              }, 1000);
             });
           } else {
             console.log("Invalid code");
@@ -429,7 +439,12 @@ async function recycleBottle(stationNumber) {
     }
   });
 }
-
+onUnmounted(() => {
+  // Clear the geolocation watcher when the component is unmounted
+  if (watcherId != null) {
+    Geolocation.clearWatch({ id: watcherId });
+  }
+});
 onMounted(() => {
   loadMarkers().then(() => {
     initMap();
@@ -570,7 +585,7 @@ button {
   border: 2px solid #fff;
   box-shadow: 0 0 5px #1d72b8;
   position: relative;
-  z-index: 1000;
+  z-index: 1;
 }
 
 .user-location-marker::after {
@@ -580,10 +595,10 @@ button {
   border-radius: 50%;
   background: rgba(29, 114, 184, 0.3);
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: -50%;
+  left: -50%;
   transform: translate(-50%, -50%);
-  animation: pulse 2s infinite;
+  animation: pulse 3s infinite;
   z-index: 1000;
 }
 

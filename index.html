@@ -21,8 +21,27 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
 
   <!-- Content Security Policy -->
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self' 'unsafe-inline' data: gap: https://*.firebaseapp.com https://*.firebaseio.com https://identitytoolkit.googleapis.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://api.mapbox.com https://events.mapbox.com https://northeurope.api.cognitive.microsoft.com; style-src 'self' 'unsafe-inline' https://api.mapbox.com; media-src *; img-src 'self' data: content: https://www.google.com; worker-src 'self' blob:;">
+  <!-- updated -->
+  <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' 'unsafe-inline' data: gap: 
+        https://*.firebaseapp.com 
+        https://*.firebaseio.com 
+        https://identitytoolkit.googleapis.com; 
+        connect-src 'self' 
+        https://*.firebaseio.com 
+        https://*.googleapis.com 
+        https://api.mapbox.com 
+        https://events.mapbox.com 
+        https://northeurope.api.cognitive.microsoft.com; 
+        style-src 'self' 'unsafe-inline' 
+        https://api.mapbox.com; 
+        media-src *; 
+        img-src 'self' data: content: 
+        https://www.google.com 
+        https://firebasestorage.googleapis.com; 
+        worker-src 'self' blob:;
+    ">
+
 
 
 
