@@ -3,5 +3,15 @@
   "integrations": {
     "capacitor": {}
   },
-  "type": "vue-vite"
+  "type": "vue-vite",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["apple.com", "google.com"]
+    },
+    "server": {
+      "url": "http://localhost",
+      "cleartext": true
+    }
+  }
 }

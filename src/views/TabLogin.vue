@@ -1,153 +1,248 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Login</ion-title>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content class="ion-padding">
-      <div class="social-login-options">
-        <ion-button @click="signInWithProvider('facebook')" expand="block">
-          <ion-icon :icon="logoFacebook" slot="start" />
-          Login with Facebook
-        </ion-button>
-        <ion-button @click="signInWithProvider('google')" expand="block">
-          <ion-icon :icon="logoGoogle" slot="start" />
-          Login with Google
-        </ion-button>
-        <ion-button @click="signInWithProvider('apple')" expand="block">
-          <ion-icon :icon="logoApple" slot="start" />
-          Login with Apple
-        </ion-button>
-      </div>
-      <p class="or-text">OR</p>
-      <form @submit.prevent="loginWithEmail">
-        <ion-item>
-          <ion-label>Email</ion-label>
-          <ion-input v-model="email" type="email"></ion-input>
-        </ion-item>
-        <ion-item>
-          <ion-label>Password</ion-label>
-          <ion-input v-model="password" type="password"></ion-input>
-        </ion-item>
-        <ion-button type="submit" expand="block">Login with Email</ion-button>
-      </form>
+    <ion-content class="login-background">
+      <!-- Slide Show -->
+      <ion-slides pager="true" options="{initialSlide: 0, speed: 400}">
+        <!-- <ion-slide>
+          <img src="path/to/your/image1.jpg" alt="Image 1" />
+          <p class="slide-text" style="color: #65bc50">Text for image 1</p>
+        </ion-slide>
+        <ion-slide>
+          <img src="path/to/your/image2.jpg" alt="Image 2" />
+          <p class="slide-text" style="color: #31b46f">Text for image 2</p>
+        </ion-slide> -->
+        <ion-slide>
+          <!-- Login Form -->
+          <ion-button
+            expand="full"
+            style="margin-top: 20px"
+            @click="googleLogin"
+          >
+            Login with Google
+          </ion-button>
+
+          <div class="login-container">
+            <ion-item>
+              <IonInput v-model="email" placeholder="Email" />
+            </ion-item>
+            <ion-item>
+              <IonInput
+                v-model="password"
+                placeholder="Password"
+                type="password"
+              />
+            </ion-item>
+            <ion-button expand="full" style="margin-top: 20px" @click="login">
+              Login
+            </ion-button>
+            <ion-text style="color: #65bc50; text-align: center">
+              <a @click="goToSignup">Sign Up</a>
+            </ion-text>
+          </div>
+        </ion-slide>
+      </ion-slides>
     </ion-content>
   </ion-page>
 </template>
 
-<!-- <script lang="ts">
-import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonContent,
-  IonItem,
-  IonLabel,
-  IonInput,
-  IonButton,
-  IonIcon,
-} from "@ionic/vue";
-import { defineComponent, ref, onMounted } from "vue";
-import {
-  signInWithRedirect,
-  signInWithEmailAndPassword,
-  getRedirectResult,
-  GoogleAuthProvider,
-  FacebookAuthProvider,
-  OAuthProvider,
-} from "firebase/auth";
-import { logoFacebook, logoGoogle, logoApple } from "ionicons/icons";
-import { auth } from "firebase/auth";
+<script lang="ts">
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
+import {
+  IonButton,
+  IonContent,
+  IonInput,
+  IonItem,
+  IonPage,
+  IonText,
+  IonAlert,
+} from "@ionic/vue";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  initializeAuth,
+  indexedDBLocalPersistence,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+} from "firebase/auth";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { initializeApp } from "firebase/app";
+import { Capacitor } from "@capacitor/core";
 
-export default defineComponent({
+// Your firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyB3KjQPSVjw0PTwn1AkKdPLlW6yyom3_GE",
+  authDomain: "wifiyer.firebaseapp.com",
+  projectId: "wifiyer",
+  storageBucket: "wifiyer.appspot.com",
+  messagingSenderId: "409869290584",
+  appId: "1:409869290584:web:36bf46c2e3ecb098610e2d",
+  measurementId: "G-7GLD6P4N2G",
+};
+
+// Initialize Firebase directly
+const app = initializeApp(firebaseConfig);
+let auth;
+const db = getFirestore(app);
+
+try {
+  if (Capacitor.isNativePlatform()) {
+    auth = getAuth(app);
+    auth = initializeAuth(app, { persistence: indexedDBLocalPersistence });
+  } else {
+    auth = getAuth(app);
+  }
+} catch (error) {
+  if (error.code !== "auth/already-initialized") {
+    console.error("Unexpected error during auth initialization", error);
+  }
+}
+
+export default {
   components: {
-    IonPage,
-    IonHeader,
-    IonToolbar,
-    IonTitle,
     IonContent,
-    IonItem,
-    IonLabel,
-    IonInput,
+    IonPage,
     IonButton,
-    IonIcon,
+    IonInput,
+    IonItem,
+    IonText,
+    IonAlert,
   },
   setup() {
     const email = ref("");
     const password = ref("");
     const router = useRouter();
+    const showAlert = ref(false);
+    const provider = new GoogleAuthProvider();
 
-    const signInWithProvider = async (providerName) => {
-      let provider;
-      if (providerName === "facebook") {
-        provider = new FacebookAuthProvider();
-      } else if (providerName === "google") {
-        provider = new GoogleAuthProvider();
-      } else if (providerName === "apple") {
-        provider = new OAuthProvider("apple.com");
-      } else {
-        console.error("Invalid provider name");
-        return;
-      }
-
+    const googleLogin = async () => {
       try {
-        await signInWithRedirect(auth, provider);
+        const userCredential = await signInWithPopup(auth, provider);
+        // The signed-in user info.
+        const user = userCredential.user;
+        console.log("User successfully logged in with Google:", user);
+        router.push("tab1");
       } catch (error) {
-        console.error("Error signing in:", error);
-      }
-    };
-
-    const loginWithEmail = async () => {
-      try {
-        await signInWithEmailAndPassword(auth, email.value, password.value);
-        router.push("/tabs/tab1");
-      } catch (error) {
-        console.error("Error signing in with email:", error);
-        alert(error.message);
-      }
-    };
-
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result.user) {
-          router.push("/tabs/tab1");
-        }
-      } catch (error) {
-        console.error("Error from redirect:", error);
+        console.error("Error logging in with Google:", error);
       }
     };
 
     onMounted(() => {
-      handleRedirectResult();
+      const tabBar = document.querySelector("ion-tab-bar");
+      if (tabBar) {
+        tabBar.style.display = "none";
+      }
     });
+
+    onBeforeUnmount(() => {
+      const tabBar = document.querySelector("ion-tab-bar");
+      if (tabBar) {
+        tabBar.style.display = "";
+      }
+    });
+
+    const signInUser = async (email: string, password: string) => {
+      try {
+        console.log(
+          "signInUser function called with email:",
+          email,
+          "and password:",
+          password
+        );
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+        console.log("User authenticated successfully:", userCredential.user);
+        return userCredential.user;
+      } catch (error) {
+        console.log("Error in signInUser function:", error);
+        throw error;
+      }
+    };
+
+    const login = async () => {
+      try {
+        console.log("Attempting to login with email:", email.value);
+
+        // Step 1: Sign-in the user
+        const user = await signInUser(email.value, password.value);
+        console.log("User signed in successfully, User ID:", user.uid);
+
+        // Step 2: Getting user document reference
+        const docRef = doc(db, "users", user.uid);
+        console.log("Document reference obtained:", docRef);
+
+        // Step 3: Fetching the user document
+        const docSnap = await getDoc(docRef);
+        console.log("Document snapshot obtained:", docSnap);
+
+        if (docSnap.exists()) {
+          console.log("User data exists:", docSnap.data());
+        } else {
+          console.log("No such document, creating new document...");
+          await setDoc(docRef, { email: user.email });
+          console.log("New document created successfully");
+        }
+
+        showAlert.value = true;
+        console.log("User data fetch successful, redirecting...");
+        router.push("tab1");
+      } catch (error) {
+        console.error("Login failed", error);
+      }
+    };
+
+    const goToSignup = () => {
+      router.push("/signup");
+    };
 
     return {
       email,
       password,
-      signInWithProvider,
-      loginWithEmail,
-      logoFacebook,
-      logoGoogle,
-      logoApple,
+      login,
+      showAlert,
+      goToSignup,
+      googleLogin,
     };
   },
-});
-</script> -->
+};
+</script>
 
-<style scoped>
-.social-login-options {
+<style>
+.login-background {
+  --background: #65bc50; /* Adjust as needed */
+}
+
+.slide-text {
+  text-align: center;
+  font-size: 1.2em;
+}
+
+.login-container {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+}
+
+ion-item {
+  --background: #fff;
+  --padding-start: 20px;
+  --padding-end: 20px;
   margin-bottom: 20px;
 }
 
-.or-text {
-  text-align: center;
-  margin-bottom: 20px;
-  font-weight: bold;
+ion-button {
+  --background: #31b46f;
+}
+
+ion-text a {
+  text-decoration: underline;
+  cursor: pointer;
 }
 </style>
