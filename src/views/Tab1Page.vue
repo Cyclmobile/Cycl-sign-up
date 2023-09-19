@@ -115,7 +115,7 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
 
   // Function to re-center the map to the user's current location
   function recenterMap() {
-    Geolocation.getCurrentPosition()
+    Geolocation.getCurrentPosition({ timeout: 15000 })
       .then((resp) => {
         map.flyTo({
           center: [resp.coords.longitude, resp.coords.latitude],
@@ -131,7 +131,7 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
   relocateBtn.addEventListener("click", recenterMap);
 
   map.on("load", () => {
-    Geolocation.getCurrentPosition().then((resp) => {
+    Geolocation.getCurrentPosition({ timeout: 15000 }).then((resp) => {
       map.flyTo({
         center: [resp.coords.longitude, resp.coords.latitude],
         essential: true,
@@ -173,15 +173,18 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
           });
       });
     });
-    watcherId = Geolocation.watchPosition({}, (position, err) => {
-      if (!err && position) {
-        // Update the user-location-marker's position
-        userLocationMarker.setLngLat([
-          position.coords.longitude,
-          position.coords.latitude,
-        ]);
+    watcherId = Geolocation.watchPosition(
+      { timeout: 15000 },
+      (position, err) => {
+        if (!err && position) {
+          // Update the user-location-marker's position
+          userLocationMarker.setLngLat([
+            position.coords.longitude,
+            position.coords.latitude,
+          ]);
+        }
       }
-    }).catch((error) => {
+    ).catch((error) => {
       console.error("Error getting location", error);
     });
   });

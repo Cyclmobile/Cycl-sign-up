@@ -1,15 +1,25 @@
 <template>
   <ion-page>
     <ion-header>
-      <ion-toolbar style="background-color: #65bc50">
-        <ion-title style="color: #fff"></ion-title>
+      <ion-toolbar style="background-color: #65bc50; position: relative">
+        <ion-title
+          style="
+            color: #fff;
+            text-align: center;
+            font-size: 1.5em;
+            margin: 0 auto;
+          "
+          >Rewards</ion-title
+        >
         <div
           style="
             position: absolute;
-            top: 0;
-            right: 0;
+            top: 50%;
+            right: 16px;
+            transform: translateY(-50%);
             padding: 10px;
-            color: #65bc50;
+            color: #fff;
+            font-weight: bold;
           "
         >
           {{ cyclCoins }} CC available
@@ -17,9 +27,18 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content style="background-color: #f0f0f0">
-      <div>
-        <h2>Explore Great Discounts</h2>
+    <ion-content style="background-color: #f0f0f0; padding: 16px">
+      <div style="margin-bottom: 16px; text-align: center">
+        <h2
+          style="
+            font-weight: bold;
+            color: #333;
+            font-size: 1.7em;
+            letter-spacing: -0.02em;
+          "
+        >
+          Explore Great Discounts
+        </h2>
       </div>
       <ion-list>
         <ion-item
@@ -29,26 +48,32 @@
             position: relative;
             background-color: #fff;
             border-radius: 15px;
-            margin: 10px;
+            margin: 10px 0;
             padding: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             overflow: hidden;
           "
         >
           <img
             :src="reward.image"
             alt="reward image"
-            style="width: 100%; height: 200px; object-fit: cover"
+            style="
+              width: 100%;
+              height: 200px;
+              object-fit: cover;
+              border-radius: 15px 15px 0 0;
+            "
           />
 
           <div
             style="
               position: absolute;
               top: 10px;
-              right: 10px;
-              background-color: rgba(0, 0, 0, 0.5);
+              right: 20px;
+              background-color: rgba(0, 0, 0, 0.7);
               color: #fff;
               padding: 5px 10px;
-              border-radius: 5px;
+              border-radius: 50px;
               font-weight: bold;
             "
           >
@@ -68,23 +93,59 @@
               padding: 15px;
             "
           >
-            <h2 style="color: #fff; margin: 0">{{ reward.title }}</h2>
-            <p style="color: #fff; margin: 5px 0">{{ reward.about }}</p>
+            <h2
+              style="
+                color: #fff;
+                margin: 0;
+                font-size: 1.2em;
+                font-weight: bold;
+                line-height: 1.3;
+              "
+            >
+              {{ reward.title }}
+            </h2>
+            <p
+              style="
+                color: #fff;
+                margin: 5px 0 0 0;
+                font-size: 1em;
+                line-height: 1.4;
+              "
+            >
+              {{ reward.about }}
+            </p>
+            <p
+              style="
+                color: #fff;
+                margin: 5px 0 0 0;
+                font-size: 1em;
+                font-weight: bold;
+              "
+            >
+              {{ reward.left }} left
+            </p>
           </div>
 
-          <div style="position: absolute; bottom: 10px; right: 10px">
+          <div style="position: absolute; bottom: 15px; right: 15px">
             <ion-button
-              style="--background: #31b46f; --border-radius: 20px"
+              style="
+                --background: #31b46f;
+                --border-radius: 20px;
+                font-weight: bold;
+              "
               @click="activateCoupon(reward.cost)"
               >Activate Coupon</ion-button
             >
           </div>
         </ion-item>
+
         <div
           v-if="rewards.length === 0"
           style="text-align: center; padding: 20px"
         >
-          <p>No rewards available at this time.</p>
+          <p style="color: #333; font-size: 1.2em; font-weight: bold">
+            No rewards available at this time.
+          </p>
         </div>
       </ion-list>
     </ion-content>
