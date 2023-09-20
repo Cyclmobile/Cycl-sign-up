@@ -13,12 +13,32 @@
       <div v-show="showCameraOverlay" class="camera-overlay">
         <video ref="videoRef" autoplay muted playsinline></video>
         <canvas ref="canvasRef" v-show="false"></canvas>
-        <p>{{ infoText }}</p>
+        <ion-text color="light">
+          <h1>{{ infoText }}</h1>
+        </ion-text>
+        <ion-button @click="toggleCameraOverlay" class="close-button">
+        </ion-button>
       </div>
+
       <div v-if="showBarcodeOverlay" class="barcode-overlay">
         <div id="interactive" class="viewport"></div>
         <div id="scanner-container"></div>
-        <button @click="toggleBarcodeOverlay">Close Scanner</button>
+
+        <div class="scan-instruction">
+          <ion-icon aria-hidden="true" :icon="scanOutline" class="scan-icon" />
+          <div class="scan-text">Scan barcode of your bottle</div>
+        </div>
+
+        <ion-button
+          style="
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+          "
+          @click="toggleBarcodeOverlay"
+          >Close Scanner</ion-button
+        >
       </div>
     </ion-content>
   </ion-page>
@@ -35,7 +55,7 @@ import {
   IonContent,
   IonIcon,
 } from "@ionic/vue";
-import { locateOutline } from "ionicons/icons";
+import { locateOutline, scanOutline } from "ionicons/icons";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { app, db } from "@/firebase.js";
@@ -108,7 +128,7 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
 
   const map = new mapboxgl.Map({
     container: "map",
-    style: "mapbox://styles/mapbox/outdoors-v12",
+    style: "mapbox://styles/mapbox/streets-v12",
     center: centerCoordinates,
     zoom: 10,
   });
@@ -233,7 +253,7 @@ async function recycleBottle(stationNumber) {
               height: 480,
               facingMode: "environment",
             },
-            target: document.querySelector("#scanner-container"),
+            target: document.querySelector("#interactive"), // targeting the interactive div
           },
           locator: {
             patchSize: "medium",
@@ -433,7 +453,7 @@ async function recycleBottle(stationNumber) {
                   "image/jpeg",
                   0.8
                 );
-              }, 1000);
+              }, 280);
             });
           } else {
             console.log("Invalid code");
@@ -463,6 +483,95 @@ onMounted(() => {
 </script>
 
 <style>
+.camera-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    var(--ion-color-primary-tint) 0%,
+    var(--ion-color-primary-shade) 100%
+  );
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.camera-overlay h1 {
+  color: var(--ion-color-light);
+  font-size: 2em;
+  margin-bottom: 20px;
+  z-index: 1000;
+  text-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  font-family: "Roboto", sans-serif;
+}
+
+.camera-overlay button {
+  --background: var(--ion-color-primary);
+  --color: var(--ion-color-light);
+  --padding-start: 1em;
+  --padding-end: 1em;
+  --border-radius: 12px;
+  font-size: 1em;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.camera-overlay .close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  --background: var(--ion-color-danger);
+  --color: var(--ion-color-light);
+  font-size: 24px;
+  padding: 10px;
+  cursor: pointer;
+  z-index: 1000;
+  border-radius: 50%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.barcode-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+}
+
+.viewport,
+#interactive {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 100;
+  border-radius: 15px;
+}
+
+button {
+  margin-top: 20px;
+  --padding-start: 10px;
+  --padding-end: 10px;
+  --font-size: 16px;
+  z-index: 1000;
+  --border-radius: 12px;
+  --background: var(--ion-color-primary);
+  --color: var(--ion-color-light);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 .custom-marker {
   background-image: url("/196.png");
   background-size: cover;
@@ -471,56 +580,6 @@ onMounted(() => {
   border-radius: 50%; /* Optional: for rounded markers */
   cursor: pointer;
 }
-
-.camera-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(49, 180, 111, 0.8);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.camera-overlay h1 {
-  color: #65bc50;
-  font-size: 2em;
-  margin-bottom: 20px;
-  z-index: 1000;
-}
-
-.camera-overlay button {
-  background-color: #65bc50;
-  border: none;
-  color: white;
-  padding: 15px 30px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 16px;
-  margin: 4px 2px;
-  cursor: pointer;
-  border-radius: 12px;
-  z-index: 1000;
-}
-
-.camera-overlay .close-button {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background-color: #31b46f;
-  border: none;
-  color: white;
-  padding: 10px;
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 1000;
-}
-
 .mapboxgl-popup-content {
   background-color: #31b46f !important;
   color: #ffffff !important;
@@ -555,38 +614,6 @@ onMounted(() => {
   cursor: pointer;
   border-radius: 12px;
 }
-.barcode-overlay {
-  position: fixed;
-  top: 0;
-  left: 10%;
-  width: 80%;
-  height: 50%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-.viewport {
-  width: 640px;
-  height: 480px;
-  position: relative;
-}
-
-button {
-  margin-top: 20px;
-  padding: 10px;
-  font-size: 16px;
-}
-
-#scanner-container {
-  width: 640px;
-  height: 480px;
-  z-index: 100;
-}
-
 .user-location-marker {
   width: 15px;
   height: 15px;
@@ -623,15 +650,6 @@ button {
   }
 }
 
-.relocate-button {
-  padding: 10px;
-  background-color: #000;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
 .recenter-button {
   position: absolute;
   top: 20px;
@@ -640,10 +658,33 @@ button {
   border-radius: 50%;
   padding: 10px;
   border: none;
-  z-index: 1000; /* ensure it stays on top of other elements */
+  z-index: 0;
 }
 
 .icon-green {
   color: #65bc50;
+}
+
+.scan-instruction {
+  position: absolute;
+  top: 10px; /* Adjust as necessary */
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  color: #fff; /* Adjust color as necessary */
+  z-index: 100;
+}
+
+.scan-icon {
+  font-size: 50px; /* Adjust size as necessary */
+  color: #fff; /* Adjust color as necessary */
+  z-index: 100;
+  width: 250px;
+  height: 250px;
+}
+
+.scan-text {
+  font-size: 16px; /* Adjust size as necessary */
+  margin-top: 10px; /* Adjust margin as necessary */
 }
 </style>

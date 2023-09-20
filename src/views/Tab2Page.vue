@@ -5,7 +5,7 @@
         <ion-title
           style="
             color: #fff;
-            text-align: center;
+            text-align: left;
             font-size: 1.5em;
             margin: 0 auto;
           "
@@ -28,6 +28,7 @@
     </ion-header>
 
     <ion-content style="background-color: #f0f0f0; padding: 16px">
+      <IonLoading :is-open="loading" message="Fetching rewards..."></IonLoading>
       <div style="margin-bottom: 16px; text-align: center">
         <h2
           style="
@@ -44,6 +45,7 @@
         <ion-item
           v-for="reward in rewards"
           :key="reward.id"
+          @click="activateCoupon(reward)"
           style="
             position: relative;
             background-color: #fff;
@@ -52,6 +54,7 @@
             padding: 0;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             overflow: hidden;
+            cursor: pointer;
           "
         >
           <img
@@ -133,7 +136,7 @@
                 --border-radius: 20px;
                 font-weight: bold;
               "
-              @click="activateCoupon(reward.cost)"
+              @click.stop="activateCoupon(reward)"
               >Activate Coupon</ion-button
             >
           </div>
@@ -162,6 +165,7 @@ import {
   IonItem,
   IonList,
   IonButton,
+  IonLoading,
 } from "@ionic/vue";
 import { defineComponent, ref, onMounted } from "vue";
 import { initializeApp } from "firebase/app";
@@ -178,6 +182,7 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "vue-router";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB3KjQPSVjw0PTwn1AkKdPLlW6yyom3_GE",
@@ -208,6 +213,8 @@ export default defineComponent({
     const rewards = ref([]);
     const cyclCoins = ref(null); // Added a ref to hold the CyclCoins balance
     const auth = getAuth(app);
+    const router = useRouter();
+    const loading = ref(false);
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -230,6 +237,8 @@ export default defineComponent({
     });
 
     const fetchRewards = async () => {
+      loading.value = true; // Set loading to true before fetching
+
       try {
         const querySnapshot = await getDocs(collection(db, "activatedStore"));
         for (const doc of querySnapshot.docs) {
@@ -247,6 +256,8 @@ export default defineComponent({
         }
       } catch (error) {
         console.error("Error fetching rewards:", error);
+      } finally {
+        loading.value = false; // Set loading to false after fetching is done
       }
     };
 
@@ -254,14 +265,18 @@ export default defineComponent({
       fetchRewards();
     });
 
-    const activateCoupon = (cost: number) => {
-      console.log(`Coupon activated for ${cost} points`);
+    // const activateCoupon = (cost: number) => {
+    //   console.log(`Coupon activated for ${cost} points`);
+    // };
+    const activateCoupon = (reward: any) => {
+      router.push({ name: "RewardDetail", params: { id: reward.id } });
     };
 
     return {
       rewards,
       activateCoupon,
       cyclCoins,
+      loading,
     };
   },
 });
