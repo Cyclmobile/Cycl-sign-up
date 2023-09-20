@@ -4,6 +4,12 @@
       <ion-header collapse="condense"> </ion-header>
 
       <div id="map" style="width: 100%; height: 100%"></div>
+      <button
+        @click="recenterMapHandler && recenterMapHandler()"
+        class="recenter-button"
+      >
+        <ion-icon aria-hidden="true" :icon="locateOutline" class="icon-green" />
+      </button>
       <div v-show="showCameraOverlay" class="camera-overlay">
         <video ref="videoRef" autoplay muted playsinline></video>
         <canvas ref="canvasRef" v-show="false"></canvas>
@@ -27,7 +33,9 @@ import {
   IonToolbar,
   IonTitle,
   IonContent,
+  IonIcon,
 } from "@ionic/vue";
+import { locateOutline } from "ionicons/icons";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { app, db } from "@/firebase.js";
@@ -68,6 +76,7 @@ const showBarcodeOverlay = ref(false);
 const router = useRouter();
 let userLocationMarker; // Variable to store the user location marker
 let watcherId; // Variable to store the watcher ID
+const recenterMapHandler = ref(null);
 
 async function loadMarkers() {
   try {
@@ -104,18 +113,13 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
     zoom: 10,
   });
 
-  // Create a button and append it to the map container
-  const relocateBtn = document.createElement("button");
-  relocateBtn.innerHTML = "Recenter";
-  relocateBtn.style.position = "absolute";
-  relocateBtn.style.top = "10px";
-  relocateBtn.style.right = "10px";
-  relocateBtn.className = "relocate-button"; // Add a class to style the button through CSS
-  document.body.appendChild(relocateBtn);
-
   // Function to re-center the map to the user's current location
   function recenterMap() {
-    Geolocation.getCurrentPosition({ timeout: 15000 })
+    Geolocation.getCurrentPosition({
+      maximumAge: 300000,
+      timeout: 5000,
+      enableHighAccuracy: true,
+    })
       .then((resp) => {
         map.flyTo({
           center: [resp.coords.longitude, resp.coords.latitude],
@@ -127,11 +131,14 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
       });
   }
 
-  // Attach the re-centering function to the button's click event
-  relocateBtn.addEventListener("click", recenterMap);
+  recenterMapHandler.value = recenterMap;
 
   map.on("load", () => {
-    Geolocation.getCurrentPosition({ timeout: 15000 }).then((resp) => {
+    Geolocation.getCurrentPosition({
+      maximumAge: 300000,
+      timeout: 5000,
+      enableHighAccuracy: true,
+    }).then((resp) => {
       map.flyTo({
         center: [resp.coords.longitude, resp.coords.latitude],
         essential: true,
@@ -174,7 +181,7 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
       });
     });
     watcherId = Geolocation.watchPosition(
-      { timeout: 15000 },
+      { maximumAge: 300000, timeout: 5000, enableHighAccuracy: true },
       (position, err) => {
         if (!err && position) {
           // Update the user-location-marker's position
@@ -623,5 +630,20 @@ button {
   border: none;
   border-radius: 5px;
   cursor: pointer;
+}
+
+.recenter-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  padding: 10px;
+  border: none;
+  z-index: 1000; /* ensure it stays on top of other elements */
+}
+
+.icon-green {
+  color: #65bc50;
 }
 </style>
