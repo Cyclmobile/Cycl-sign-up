@@ -69,6 +69,7 @@
           />
 
           <div
+            v-if="reward.type !== 'donation'"
             style="
               position: absolute;
               top: 10px;
@@ -118,6 +119,7 @@
               {{ reward.about }}
             </p>
             <p
+              v-if="reward.type !== 'donation'"
               style="
                 color: #fff;
                 margin: 5px 0 0 0;
@@ -131,14 +133,15 @@
 
           <div style="position: absolute; bottom: 15px; right: 15px">
             <ion-button
-              style="
-                --background: #31b46f;
-                --border-radius: 20px;
-                font-weight: bold;
+              :style="
+                reward.type === 'donation'
+                  ? '--background: #31b46f; --border-radius: 20px; font-weight: bold'
+                  : '--background: #31b46f; --border-radius: 20px; font-weight: bold'
               "
               @click.stop="activateCoupon(reward)"
-              >Activate Coupon</ion-button
             >
+              {{ getButtonText(reward.type) }}
+            </ion-button>
           </div>
         </ion-item>
 
@@ -216,6 +219,10 @@ export default defineComponent({
     const router = useRouter();
     const loading = ref(false);
 
+    const getButtonText = (type: string) => {
+      return type === "donation" ? "Donate" : "Activate Coupon";
+    };
+
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         console.log("User is logged in:", user);
@@ -277,6 +284,7 @@ export default defineComponent({
       activateCoupon,
       cyclCoins,
       loading,
+      getButtonText,
     };
   },
 });
