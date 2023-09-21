@@ -133,13 +133,14 @@ import { defineComponent, ref, onMounted, computed } from "vue";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
-  collection,
-  getDocs,
-  getDoc,
   doc,
+  getDoc,
   updateDoc,
+  arrayRemove,
+  collection,
   addDoc,
 } from "firebase/firestore";
+
 import {
   getStorage,
   ref as storageRef,
@@ -233,7 +234,7 @@ export default defineComponent({
                 db,
                 "users",
                 user.uid,
-                "donations"
+                "history"
               );
               await addDoc(userDonationsCollectionRef, donationDetails);
 
@@ -253,13 +254,91 @@ export default defineComponent({
       }
     }
 
-    function activateCoupon() {
+    async function activateCoupon() {
       if (reward.value) {
-        const auth = getAuth(app);
-        // Get the currently logged-in user
-        const user = auth.currentUser;
-        console.log(user);
-        console.log(`Coupon activated for ${reward.value.cost}points`);
+        try {
+          const auth = getAuth(app);
+          const user = auth.currentUser;
+
+          const id = route.params.id; // Get the 'id' from the route parameters
+
+          if (user && id) {
+            const confirmation = confirm(
+              `Would you like to activate ${reward.value.title} for ${reward.value.cost} Cycl Coins?`
+            );
+
+            if (confirmation) {
+              // Proceed with storing information in Firestore
+
+              const userDocRef = doc(db, "users", user.uid);
+
+              // Get current user CyclCoins
+              const userDoc = await getDoc(userDocRef);
+              const currentUserCyclCoins = userDoc.data().CyclCoins;
+
+              // Ensure the user has enough Cycl Coins
+              if (currentUserCyclCoins >= reward.value.cost) {
+                // Deduct the reward cost from user's Cycl Coins
+                await updateDoc(userDocRef, {
+                  CyclCoins: currentUserCyclCoins - reward.value.cost,
+                });
+
+                // Prepare the data to store
+                const timestamp = new Date();
+                let activationDetails = {
+                  title: reward.value.title,
+                  image: reward.value.image,
+                  amount: reward.value.cost,
+                  timestamp: timestamp,
+                };
+
+                // Check if 'codes' field exists and add 'code' and 'exp' fields to activationDetails
+                if (reward.value.codes && reward.value.codes.length > 0) {
+                  activationDetails = {
+                    ...activationDetails,
+                    code: reward.value.codes[0], // Assuming 'codes' is an array. Adjust as needed.
+                    exp: reward.value.exp, // Add 'exp' from reward.value
+                  };
+
+                  // Update the reward doc to remove the used code
+                  const rewardDocRef = doc(db, "activatedStore", id);
+                  await updateDoc(rewardDocRef, {
+                    codes: arrayRemove(reward.value.codes[0]), // Remove the used code from the array
+                  });
+                }
+
+                // Store the activation details in a "donations" subcollection under the user's document in Firestore
+                const userDonationsCollectionRef = collection(
+                  db,
+                  "users",
+                  user.uid,
+                  "history"
+                );
+                await addDoc(userDonationsCollectionRef, activationDetails);
+
+                // Reduce the availability of the reward by 1
+                const rewardDocRef = doc(db, "activatedStore", id);
+                await updateDoc(rewardDocRef, {
+                  left: reward.value.left - 1,
+                });
+
+                alert("Coupon activated successfully!");
+              } else {
+                alert("Insufficient Cycl Coins.");
+              }
+            }
+          } else {
+            if (!user) {
+              alert("User not logged in.");
+            }
+            if (!id) {
+              alert("Reward ID is undefined.");
+            }
+          }
+        } catch (error) {
+          console.error("Error activating coupon:", error);
+          alert("An error occurred while activating the coupon.");
+        }
       }
     }
 

@@ -1,469 +1,354 @@
 <template>
   <ion-page>
-    <ion-header> </ion-header>
-    <ion-content :fullscreen="true">
-      <ion-header collapse="condense"> </ion-header>
+    <ion-header>
+      <ion-toolbar style="background-color: #65bc50">
+        <ion-buttons slot="start">
+          <ion-back-button
+            defaultHref="/rewards"
+            style="color: #fff"
+          ></ion-back-button>
+        </ion-buttons>
+        <ion-title
+          style="
+            color: #fff;
+            text-align: center;
+            font-size: 1.5em;
+            margin: 0 auto;
+          "
+          >Details</ion-title
+        >
+      </ion-toolbar>
+    </ion-header>
 
-      <div id="map" style="width: 100%; height: 100%"></div>
-      <div v-show="showCameraOverlay" class="camera-overlay">
-        <video ref="videoRef" autoplay muted playsinline></video>
-        <canvas ref="canvasRef" v-show="false"></canvas>
-        <p>{{ infoText }}</p>
+    <ion-content style="background-color: #f0f0f0; color: #000">
+      <div v-if="reward" style="padding: 16px">
+        <img
+          :src="reward.image"
+          alt="reward image"
+          style="
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+          "
+        />
+
+        <h2
+          style="
+            color: #31b46f;
+            margin-bottom: 8px;
+            font-size: 1.8rem;
+            font-weight: 600;
+          "
+        >
+          {{ reward.title }}
+        </h2>
+
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            background-color: #ffffff;
+            padding: 14px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          "
+        >
+          <div>
+            <p style="margin: 0; font-weight: 600; color: #65bc50">Cost</p>
+            <p style="margin-top: 8px; color: #555555">
+              {{ reward.cost }} Cycl Coins
+            </p>
+          </div>
+          <div>
+            <p style="margin: 0; font-weight: 600; color: #65bc50">
+              Availability
+            </p>
+            <p style="margin-top: 8px; color: #555555">
+              {{ reward.left }} left
+            </p>
+          </div>
+        </div>
+
+        <p style="margin-bottom: 8px; font-weight: 600; color: #31b46f">
+          Website/Location
+        </p>
+        <p style="margin-bottom: 16px; line-height: 1.6">
+          <a
+            :href="reward.address"
+            target="_blank"
+            style="color: #31b46f; text-decoration: underline; cursor: pointer"
+          >
+            Show Location
+          </a>
+        </p>
+
+        <p style="margin-bottom: 8px; font-weight: 600; color: #31b46f">
+          Details
+        </p>
+        <p style="margin-bottom: 16px; line-height: 1.6">
+          {{ reward.details }}
+        </p>
+
+        <ion-button
+          @click="
+            reward.type === 'donation' ? initiateDonation() : activateCoupon()
+          "
+          expand="full"
+          style="
+            background-color: #65bc50;
+            color: #fff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            right: 16px;
+            border-radius: 25px;
+          "
+        >
+          {{ buttonLabel }}
+        </ion-button>
       </div>
-      <div v-if="showBarcodeOverlay" class="barcode-overlay">
-        <div id="interactive" class="viewport"></div>
-        <div id="scanner-container"></div>
-        <button @click="toggleBarcodeOverlay">Close Scanner</button>
+      <div v-else style="padding: 16px">
+        <p>Loading reward details...</p>
       </div>
     </ion-content>
   </ion-page>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, nextTick } from "vue";
+<script lang="ts">
 import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
   IonContent,
+  IonHeader,
+  IonPage,
+  IonTitle,
+  IonToolbar,
+  IonButtons, // Make sure this line is here
+  IonBackButton,
 } from "@ionic/vue";
-import mapboxgl from "mapbox-gl";
-import { updateDoc, doc } from "firebase/firestore";
-import "mapbox-gl/dist/mapbox-gl.css";
-import { db } from "@/firebase.js"; // Adjust the path to point to your firebase.js file
-import { collection, getDocs, query } from "firebase/firestore";
-import Quagga from "quagga";
-import { defineExpose } from "vue";
+import { useRoute } from "vue-router"; // Make sure to import useRoute here
 
-interface Marker {
-  stationNumber: string;
-  latitude: number;
-  longitude: number;
-  [key: string]: any;
-  placeName: string;
-  address: string;
-  capacity: number;
-  currentCap: number;
-}
+import { defineComponent, ref, onMounted, computed } from "vue";
+import { initializeApp } from "firebase/app";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  updateDoc,
+  arrayRemove,
+  collection,
+  addDoc,
+} from "firebase/firestore";
 
-const markers = ref<Marker[]>([]);
-const areMarkersLoaded = ref(false);
-const showCameraOverlay = ref(false);
-const videoRef = ref(null);
-const canvasRef = ref(null);
-const infoText = ref("");
-let currentMarker = ref(null);
-const showBarcodeOverlay = ref(false);
+import {
+  getStorage,
+  ref as storageRef,
+  getDownloadURL,
+} from "firebase/storage";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "vue-router";
 
-async function loadMarkers() {
-  try {
-    const q = query(collection(db, "stations"));
-    const querySnapshot = await getDocs(q);
-    markers.value = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        stationNumber: doc.id,
-        ...data,
-        latitude: data.coordinates?.[0] ?? 0,
-        longitude: data.coordinates?.[1] ?? 0,
-        placeName: data.placeName ?? "",
-        address: data.address ?? "",
-        currentCap: data.currentCap ?? 0, // Provide a default value
-      };
-    });
-  } catch (error) {
-    console.error("Error fetching markers:", error);
-  }
-}
-window.recycleBottle = recycleBottle;
+const firebaseConfig = {
+  apiKey: "AIzaSyB3KjQPSVjw0PTwn1AkKdPLlW6yyom3_GE",
+  authDomain: "wifiyer.firebaseapp.com",
+  projectId: "wifiyer",
+  storageBucket: "wifiyer.appspot.com",
+  messagingSenderId: "409869290584",
+  appId: "1:409869290584:web:36bf46c2e3ecb098610e2d",
+  measurementId: "G-7GLD6P4N2G",
+};
 
-function initMap(centerCoordinates: [number, number] = [0, 0]) {
-  console.log("initMap is executed with coordinates", centerCoordinates);
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+export default defineComponent({
+  components: {
+    IonContent,
+    IonHeader,
+    IonPage,
+    IonTitle,
+    IonToolbar,
+    IonButtons,
+    IonBackButton,
+  },
+  setup() {
+    const route = useRoute();
+    const reward = ref<any>(null);
 
-  mapboxgl.accessToken =
-    "pk.eyJ1IjoiY3ljbG1vYmlsZWFwcCIsImEiOiJja3lxODRlOHQwMGR0MnhzMHd3YXl3OTVxIn0.Gg2Zqy13hJU5iDUuV_F2Zg";
-
-  const map = new mapboxgl.Map({
-    container: "map",
-    style: "mapbox://styles/mapbox/streets-v11",
-    center: centerCoordinates,
-    zoom: 10,
-  });
-
-  // Add geolocation controls to the map.
-  const geolocate = new mapboxgl.GeolocateControl({
-    positionOptions: {
-      enableHighAccuracy: true,
-    },
-    trackUserLocation: true,
-    showUserLocation: true,
-    fitBoundsOptions: {
-      maxZoom: 15,
-    },
-  });
-
-  map.addControl(geolocate);
-
-  map.on("load", () => {
-    // Automatically trigger the geolocation control to get the user's location
-    geolocate.trigger();
-
-    // Add markers to the map
-    markers.value.forEach((marker) => {
-      // Create a new HTML element for each marker and apply the custom class
-      var el = document.createElement("div");
-      el.className = "custom-marker";
-
-      new mapboxgl.Marker(el)
-        .setLngLat([marker.longitude, marker.latitude])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 25 }) // add popups
-            .setHTML(
-              `<div style="color: black;">
-                 <h3>ID: ${marker.stationNumber}</h3>
-              <h6>Location: ${marker.placeName}</h6>
-              <h6>address:${marker.address}</h6>
-              <h6>Full: ${marker.currentCap}</h6>
-            <button onClick="window.toggleBarcodeOverlay()">Recycle your bottle</button>
-            </div>`
-            )
-        )
-        .addTo(map)
-        .on("click", () => {
-          currentMarker.value = marker; // set the current marker when a marker is clicked
-          console.log("Current marker set:", currentMarker.value);
-        });
-    });
-  });
-}
-
-function toggleBarcodeOverlay() {
-  showBarcodeOverlay.value = !showBarcodeOverlay.value;
-  if (showBarcodeOverlay.value) {
-    nextTick(() => {
-      Quagga.init(
-        {
-          inputStream: {
-            type: "LiveStream",
-            constraints: {
-              width: 640,
-              height: 480,
-              facingMode: "environment", // or user
-            },
-            target: document.querySelector("#scanner-container"), // target element
-          },
-          locator: {
-            patchSize: "medium",
-            halfSample: true,
-          },
-          numOfWorkers: 4,
-          decoder: {
-            readers: ["code_128_reader"],
-          },
-          locate: true,
-        },
-        function (err) {
-          if (err) {
-            console.log(err);
-            return;
-          }
-          console.log("Initialization finished. Ready to start");
-          Quagga.start();
+    onMounted(async () => {
+      const id = route.params.id;
+      try {
+        const docRef = doc(db, "activatedStore", id); // Adjust with your Firestore collection path
+        const docSnapshot = await getDoc(docRef);
+        if (docSnapshot.exists()) {
+          reward.value = docSnapshot.data();
+        } else {
+          console.error("No such document!");
         }
-      );
+      } catch (error) {
+        console.error("Error getting document:", error);
+      }
+    });
 
-      // Event handler for barcode detection
-      Quagga.onDetected((data) => {
-        // handle the barcode data here
-        if (data.codeResult.code === "12345678") {
-          showBarcodeOverlay.value = false;
-          showCameraOverlay.value = true;
-          if (currentMarker.value) {
-            console.log(
-              "Invoking recycleBottle with stationNumber:",
-              currentMarker.value.stationNumber
+    const buttonStyle = computed(() => {
+      return reward.value?.type === "donation"
+        ? "background-color: #65bc50; color: #fff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); position: fixed; bottom: 16px; left: 16px; right: 16px; border-radius: 25px;"
+        : "background-color: #65bc50; color: #fff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); position: fixed; bottom: 16px; left: 16px; right: 16px; border-radius: 25px;";
+    });
+
+    const buttonLabel = computed(() => {
+      return reward.value?.type === "donation" ? "Donate" : "Activate Coupon";
+    });
+
+    async function initiateDonation() {
+      const amount = window.prompt("Enter the amount you want to donate:");
+      if (amount && !isNaN(Number(amount)) && Number(amount) > 0) {
+        try {
+          const auth = getAuth(app);
+          const user = auth.currentUser;
+
+          if (user) {
+            // Step 1: Get current user CyclCoins
+            const userDocRef = doc(db, "users", user.uid); // Adjust this with your user's collection path
+            const userDoc = await getDoc(userDocRef);
+            const currentUserCyclCoins = userDoc.data().CyclCoins;
+
+            // Step 2: Deduct the donation amount from current user's CyclCoins
+            if (currentUserCyclCoins >= Number(amount)) {
+              await updateDoc(userDocRef, {
+                CyclCoins: currentUserCyclCoins - Number(amount),
+              });
+
+              // Step 3: Log the donation in a subcollection under the user's document in Firestore
+              const timestamp = new Date();
+              const donationDetails = {
+                title: reward.value.title, // Make sure to fetch the reward details properly
+                image: reward.value.image, // Adjust with the correct path to fetch the image
+                amount: Number(amount),
+                timestamp: timestamp,
+                userId: user.uid,
+              };
+
+              const userDonationsCollectionRef = collection(
+                db,
+                "users",
+                user.uid,
+                "history"
+              );
+              await addDoc(userDonationsCollectionRef, donationDetails);
+
+              alert("Thank you for your donation!");
+            } else {
+              alert("Insufficient CyclCoins for donation.");
+            }
+          } else {
+            alert("User not logged in.");
+          }
+        } catch (error) {
+          console.error("Error initiating donation:", error);
+          alert("An error occurred while initiating the donation.");
+        }
+      } else {
+        alert("Invalid donation amount.");
+      }
+    }
+
+    async function activateCoupon() {
+      if (reward.value) {
+        try {
+          const auth = getAuth(app);
+          const user = auth.currentUser;
+
+          const id = route.params.id; // Get the 'id' from the route parameters
+
+          if (user && id) {
+            const confirmation = confirm(
+              `Would you like to activate ${reward.value.title} for ${reward.value.cost} Cycl Coins?`
             );
 
-            recycleBottle(currentMarker.value.stationNumber);
-          } else {
-            console.error("No marker is selected.");
-          }
-        }
-      });
-    });
-  } else {
-    // Stop QuaggaJS when the overlay is closed
-    Quagga.stop();
-  }
-}
+            if (confirmation) {
+              // Proceed with storing information in Firestore
 
-defineExpose({
-  toggleBarcodeOverlay,
-  showBarcodeOverlay,
-});
+              const userDocRef = doc(db, "users", user.uid);
 
-window.toggleBarcodeOverlay = toggleBarcodeOverlay;
+              // Get current user CyclCoins
+              const userDoc = await getDoc(userDocRef);
+              const currentUserCyclCoins = userDoc.data().CyclCoins;
 
-async function recycleBottle(stationNumber) {
-  const marker = markers.value.find((m) => m.stationNumber === stationNumber);
-  if (!marker) {
-    console.error("Marker not found");
-    return;
-  }
+              // Ensure the user has enough Cycl Coins
+              if (currentUserCyclCoins >= reward.value.cost) {
+                // Deduct the reward cost from user's Cycl Coins
+                await updateDoc(userDocRef, {
+                  CyclCoins: currentUserCyclCoins - reward.value.cost,
+                });
 
-  showCameraOverlay.value = true;
+                // Prepare the data to store
+                const timestamp = new Date();
+                let activationDetails = {
+                  title: reward.value.title,
+                  image: reward.value.image,
+                  amount: reward.value.cyclCoins,
+                  timestamp: timestamp,
+                };
 
-  const video = videoRef.value;
-  const canvas = canvasRef.value;
-  const context = canvas.getContext("2d");
+                // Check if 'codes' field exists and add 'code' and 'exp' fields to activationDetails
+                if (reward.value.codes && reward.value.codes.length > 0) {
+                  activationDetails = {
+                    ...activationDetails,
+                    code: reward.value.codes[0], // Assuming 'codes' is an array. Adjust as needed.
+                    exp: reward.value.exp, // Add 'exp' from reward.value
+                  };
 
-  const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
-  //get link from firestore
-  const predictionURL =
-    "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: "environment",
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-      },
-    });
-    video.srcObject = stream;
-    video.onloadedmetadata = () => {
-      video.play();
-    };
-  } catch (error) {
-    console.error("Error accessing camera:", error);
-    alert("Camera error: " + error.message);
-    return;
-  }
-
-  video.addEventListener("play", () => {
-    const draw = () => {
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      requestAnimationFrame(draw);
-    };
-    draw();
-
-    let isCurrentCapUpdated = false;
-
-    const intervalId = setInterval(async () => {
-      canvas.toBlob(
-        async (blob) => {
-          try {
-            const response = await fetch(predictionURL, {
-              method: "POST",
-              headers: {
-                "Prediction-Key": predictionKey,
-                "Content-Type": "application/octet-stream",
-              },
-              body: blob,
-            });
-            const data = await response.json();
-            console.log(data);
-
-            if (data.predictions && data.predictions.length > 0) {
-              const recycledPrediction = data.predictions.find(
-                (p) => p.tagName === "recycled"
-              );
-              const recycledPrediction_off = data.predictions.find(
-                (p) => p.tagName === "OffPosition"
-              );
-              const recycledPrediction_on = data.predictions.find(
-                (p) => p.tagName === "on-position"
-              );
-
-              if (recycledPrediction && recycledPrediction.probability > 0.8) {
-                clearInterval(intervalId);
-                showCameraOverlay.value = true;
-                console.log("Bottle is recycled");
-                infoText.value = "Bottle recycled";
-                isCurrentCapUpdated = true;
-
-                // Update marker capacity
-                marker.currentCap += 1;
-
-                // Update the currentCap in the Firestore database
-                try {
-                  const markerRef = doc(db, "stations", stationNumber);
-                  await updateDoc(markerRef, {
-                    currentCap: marker.currentCap,
+                  // Update the reward doc to remove the used code
+                  const rewardDocRef = doc(db, "activatedStore", id);
+                  await updateDoc(rewardDocRef, {
+                    codes: arrayRemove(reward.value.codes[0]), // Remove the used code from the array
                   });
-                } catch (error) {
-                  console.error(
-                    "Error updating capacity in the database",
-                    error
-                  );
-                  alert("Failed to update capacity in the database");
                 }
-              } else if (
-                recycledPrediction_on &&
-                recycledPrediction_on.probability > 0.8
-              ) {
-                infoText.value = "Drop your bottle";
+
+                // Store the activation details in a "donations" subcollection under the user's document in Firestore
+                const userDonationsCollectionRef = collection(
+                  db,
+                  "users",
+                  user.uid,
+                  "history"
+                );
+                await addDoc(userDonationsCollectionRef, activationDetails);
+
+                // Reduce the availability of the reward by 1
+                const rewardDocRef = doc(db, "activatedStore", id);
+                await updateDoc(rewardDocRef, {
+                  left: reward.value.left - 1,
+                });
+
+                alert("Coupon activated successfully!");
               } else {
-                infoText.value = "Place your bottle top of the hole";
+                alert("Insufficient Cycl Coins.");
               }
             }
-          } catch (error) {
-            console.error(error);
+          } else {
+            if (!user) {
+              alert("User not logged in.");
+            }
+            if (!id) {
+              alert("Reward ID is undefined.");
+            }
           }
-        },
-        "image/jpeg",
-        0.8
-      );
-    }, 150);
-  });
-}
+        } catch (error) {
+          console.error("Error activating coupon:", error);
+          alert("An error occurred while activating the coupon.");
+        }
+      }
+    }
 
-onMounted(() => {
-  loadMarkers().then(() => {
-    initMap();
-  });
+    return {
+      reward,
+      buttonStyle,
+      buttonLabel,
+      initiateDonation, // Make this available in your template
+      activateCoupon,
+    };
+  },
 });
 </script>
-
-<style>
-.custom-marker {
-  background-image: url("/196.png");
-  background-size: cover;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%; /* Optional: for rounded markers */
-  cursor: pointer;
-}
-
-.camera-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(49, 180, 111, 0.8);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.camera-overlay h1 {
-  color: #65bc50;
-  font-size: 2em;
-  margin-bottom: 20px;
-  z-index: 1000;
-}
-
-.camera-overlay button {
-  background-color: #65bc50;
-  border: none;
-  color: white;
-  padding: 15px 30px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 16px;
-  margin: 4px 2px;
-  cursor: pointer;
-  border-radius: 12px;
-  z-index: 1000;
-}
-
-.camera-overlay .close-button {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background-color: #31b46f;
-  border: none;
-  color: white;
-  padding: 10px;
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 1000;
-}
-
-.mapboxgl-popup-content {
-  background-color: #31b46f !important;
-  color: #ffffff !important;
-  border-radius: 12px !important;
-  padding: 15px !important;
-}
-
-.mapboxgl-popup-content h3 {
-  margin-top: 0;
-  color: #ffffff !important;
-}
-
-.mapboxgl-popup-content h6 {
-  margin-top: 0;
-  color: #ffffff !important;
-}
-
-.mapboxgl-popup-content p {
-  color: #ffffff !important;
-}
-
-.mapboxgl-popup-content button {
-  background-color: #65bc50;
-  border: none;
-  color: white;
-  padding: 15px 30px;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 16px;
-  margin: 4px 2px;
-  cursor: pointer;
-  border-radius: 12px;
-}
-.barcode-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.viewport {
-  width: 640px;
-  height: 480px;
-  position: relative;
-}
-
-button {
-  margin-top: 20px;
-  padding: 10px;
-  font-size: 16px;
-}
-
-#scanner-container {
-  width: 640px;
-  height: 480px;
-  z-index: 100;
-}
-</style>
-
-console.log(data); if (data.predictions && data.predictions.length > 0) { const
-recycledPrediction = data.predictions.find( (p) => p.tagName === "recycled" );
-const recycledPrediction_off = data.predictions.find( (p) => p.tagName ===
-"OffPosition" ); const recycledPrediction_on = data.predictions.find( (p) =>
-p.tagName === "on-position" ); if ( recycledPrediction &&
-recycledPrediction.probability > 0.8 ) { clearInterval(intervalId);
-showCameraOverlay.value = true; console.log("Bottle is recycled");
-infoText.value = "Bottle recycled"; isCurrentCapUpdated = true; // Update marker
-capacity marker.currentCap += 1; // Update the currentCap in the Firestore
-database try { const markerRef = doc(db, "stations", stationNumber); await
-updateDoc(markerRef, { currentCap: marker.currentCap, }); } catch (error) {
-console.error( "Error updating capacity in the database", error ); alert("Failed
-to update capacity in the database"); } } else if ( recycledPrediction_on &&
-recycledPrediction_on.probability > 0.8 ) { infoText.value = "Drop your bottle";
-} else { infoText.value = "Place your bottle top of the hole"; } }

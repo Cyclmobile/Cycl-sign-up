@@ -453,7 +453,7 @@ async function recycleBottle(stationNumber) {
                   "image/jpeg",
                   0.8
                 );
-              }, 280);
+              }, 180);
             });
           } else {
             console.log("Invalid code");
