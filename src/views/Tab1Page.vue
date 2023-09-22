@@ -354,6 +354,7 @@ async function recycleBottle(stationNumber) {
             const video = videoRef.value;
             const canvas = canvasRef.value;
             const context = canvas.getContext("2d");
+            let canRecycle = false; // Initialize outside of your data check loop
 
             const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
             const predictionURL =
@@ -412,18 +413,29 @@ async function recycleBottle(stationNumber) {
                           (p) => p.tagName === "on-position"
                         );
 
+                        // Check if recycledPrediction_on is true
                         if (
+                          recycledPrediction_on &&
+                          recycledPrediction_on.probability > 0.8
+                        ) {
+                          infoText.value = "Drop your bottle";
+                          canRecycle = true; // Set the flag to true when recycledPrediction_on is met
+                        }
+                        // If recycledPrediction_on condition was previously met, then check for recycledPrediction
+                        else if (
+                          canRecycle &&
                           recycledPrediction &&
                           recycledPrediction.probability > 0.8
                         ) {
                           clearInterval(intervalId);
-                          showCameraOverlay.value = true;
+                          showCameraOverlay.value = false;
                           console.log("Bottle is recycled");
                           alert("bottle recycled");
                           infoText.value = "Bottle recycled";
                           isCurrentCapUpdated = true;
                           // Update marker capacity
                           marker.currentCap += 1;
+                          canRecycle = false; // Reset the flag
 
                           // Update the currentCap in the Firestore database
                           try {
