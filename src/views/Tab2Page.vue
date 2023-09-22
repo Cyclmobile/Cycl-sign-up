@@ -155,6 +155,9 @@
             No rewards available at this time.
           </p>
         </div>
+        <div @click="showBannerAd">
+          <div class="ad-placeholder">Advertisement</div>
+        </div>
       </ion-list>
     </ion-content>
   </ion-page>
@@ -188,6 +191,7 @@ import {
 } from "firebase/storage";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "vue-router";
+import { AdMob } from "@capacitor-community/admob";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB3KjQPSVjw0PTwn1AkKdPLlW6yyom3_GE",
@@ -220,6 +224,22 @@ export default defineComponent({
     const auth = getAuth(app);
     const router = useRouter();
     const loading = ref(false);
+    const itemHeight = ref(60); // 60px or whatever the height of an item is
+
+    const showBannerAd = async (index) => {
+      try {
+        await AdMob.showBanner({
+          adId: "ca-app-pub-8255021700561730/2737351779",
+          adSize: "BANNER",
+          position: "BOTTOM",
+          hasTabBar: false,
+          tabBarHeight: 56,
+          margin: index * itemHeight, // adjust this based on your item height
+        });
+      } catch (err) {
+        console.error("Error showing banner ad:", err);
+      }
+    };
 
     const getButtonText = (type: string) => {
       return type === "donation" ? "Donate" : "Activate Coupon";
@@ -287,7 +307,20 @@ export default defineComponent({
       cyclCoins,
       loading,
       getButtonText,
+      showBannerAd,
+      itemHeight,
     };
   },
 });
 </script>
+
+<style>
+.ad-placeholder {
+  width: 100%;
+  height: 50px; /* adjust based on your ad size */
+  background-color: #271d1d;
+  text-align: center;
+  line-height: 50px;
+  margin: 10px 0;
+}
+</style>

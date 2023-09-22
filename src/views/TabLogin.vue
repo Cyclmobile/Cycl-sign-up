@@ -189,14 +189,14 @@ export default {
 
         showAlert.value = true;
         console.log("User data fetch successful, redirecting...");
-        router.push("tab1");
+        router.replace("tab1");
       } catch (error) {
         console.error("Login failed", error);
       }
     };
 
     const goToSignup = () => {
-      router.push("/signup");
+      router.replace("/signup");
     };
 
     return {

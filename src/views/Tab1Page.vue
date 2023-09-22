@@ -194,13 +194,24 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
           .setPopup(
             new mapboxgl.Popup({ offset: 25 }) // add popups
               .setHTML(
-                `<div style="color: black;">
-                  <h3>ID: ${marker.stationNumber}</h3>
-                  <h6>Location: ${marker.placeName}</h6>
-                  <h6>address:${marker.address}</h6>
-                  <h6>Full: ${marker.currentCap}</h6>
-                  <button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
-                </div>`
+                `<div style="color: white;">
+      <div style="display: flex; align-items: center; margin-bottom: 5px;">
+          <h3>ID: ${marker.stationNumber}</h3>
+      </div>
+      <div style="display: flex; align-items: center; margin-bottom: 5px;">
+          <i class="icon ion-md-locate" style="color: white; font-size: 20px; margin-right: 10px;"></i>
+          <h6>Location: ${marker.placeName}</h6>
+      </div>
+      <div style="display: flex; align-items: center; margin-bottom: 5px;">
+          <i class="icon ion-md-home" style="color: white; font-size: 20px; margin-right: 10px;"></i>
+          <h6>Address:${marker.address}</h6>
+      </div>
+      <div style="display: flex; align-items: center; margin-bottom: 5px;">
+          <i class="icon ion-md-water" style="color: white; font-size: 20px; margin-right: 10px;"></i>
+          <h6>Full: ${marker.currentCap}</h6>
+      </div>
+      <button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
+  </div>`
               )
           )
           .addTo(map)
@@ -408,6 +419,7 @@ async function recycleBottle(stationNumber) {
                           clearInterval(intervalId);
                           showCameraOverlay.value = true;
                           console.log("Bottle is recycled");
+                          alert("bottle recycled");
                           infoText.value = "Bottle recycled";
                           isCurrentCapUpdated = true;
                           // Update marker capacity
@@ -475,9 +487,9 @@ async function recycleBottle(stationNumber) {
                     }
                   },
                   "image/jpeg",
-                  0.8
+                  0.5
                 );
-              }, 180);
+              }, 1500);
             });
           } else {
             console.log("Invalid code");
@@ -609,35 +621,40 @@ button {
   color: #ffffff !important;
   border-radius: 12px !important;
   padding: 15px !important;
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  z-index: 7;
 }
 
-.mapboxgl-popup-content h3 {
-  margin-top: 0;
-  color: #ffffff !important;
+.mapboxgl-popup-content i {
+  margin-right: 8px;
+  z-index: 7;
 }
 
+.mapboxgl-popup-content h3,
 .mapboxgl-popup-content h6 {
-  margin-top: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
   color: #ffffff !important;
-}
-
-.mapboxgl-popup-content p {
-  color: #ffffff !important;
+  z-index: 7;
 }
 
 .mapboxgl-popup-content button {
   background-color: #65bc50;
   border: none;
   color: white;
-  padding: 15px 30px;
+  padding: 10px 25px;
   text-align: center;
-  text-decoration: none;
   display: inline-block;
   font-size: 16px;
-  margin: 4px 2px;
+  margin: 10px 0;
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: 8px;
+  z-index: 7;
 }
+
 .user-location-marker {
   width: 15px;
   height: 15px;
@@ -646,7 +663,7 @@ button {
   border: 2px solid #fff;
   box-shadow: 0 0 5px #1d72b8;
   position: relative;
-  z-index: 1;
+  z-index: 3;
 }
 
 .user-location-marker::after {
