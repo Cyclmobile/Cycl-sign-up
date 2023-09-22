@@ -93,17 +93,13 @@ const logout = () => {
 
 <style scoped>
 .recycled-bottles {
-  background: linear-gradient(
-    135deg,
-    #65bc50,
-    #4a9e38
-  ); /* Added gradient for modern feel */
+  background: linear-gradient(135deg, #65bc50, #4a9e38);
   color: white;
   text-align: center;
   padding: 20px 0;
-  border-radius: 12px; /* Slightly increased for softer corners */
+  border-radius: 12px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Added shadow for depth */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .recycled-bottles span {
@@ -113,22 +109,18 @@ const logout = () => {
 ion-list ion-item {
   --ion-item-background: white;
   --ion-item-color: #65bc50;
-  border-radius: 12px; /* Consistency with the bottles card */
-  margin-bottom: 12px; /* Slightly increased for better spacing */
-  transition: transform 0.2s; /* Added for hover effect */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Added shadow for depth */
+  border-radius: 12px;
+  margin-bottom: 12px;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 ion-list ion-item:hover {
-  transform: scale(1.02); /* Subtle zoom on hover */
+  transform: scale(1.02);
 }
 
 ion-toolbar {
-  --background: linear-gradient(
-    135deg,
-    #65bc50,
-    #4a9e38
-  ); /* Gradient to match the bottles card */
+  --background: linear-gradient(135deg, #65bc50, #4a9e38);
   --color: white;
 }
 </style>

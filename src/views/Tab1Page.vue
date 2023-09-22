@@ -54,12 +54,13 @@ import {
   IonTitle,
   IonContent,
   IonIcon,
+  alertController,
 } from "@ionic/vue";
 import { locateOutline, scanOutline } from "ionicons/icons";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { app, db } from "@/firebase.js";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
   doc,
   updateDoc,
@@ -97,6 +98,7 @@ const router = useRouter();
 let userLocationMarker; // Variable to store the user location marker
 let watcherId; // Variable to store the watcher ID
 const recenterMapHandler = ref(null);
+const auth = getAuth(app);
 
 async function loadMarkers() {
   try {
@@ -131,6 +133,14 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
     style: "mapbox://styles/mapbox/streets-v12",
     center: centerCoordinates,
     zoom: 10,
+  });
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log("User is signed in:", user);
+      // Initialize your map or do any other operations here.
+    } else {
+      console.log("No user");
+    }
   });
 
   // Function to re-center the map to the user's current location
@@ -219,8 +229,6 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
 
 async function recycleBottle(stationNumber) {
   // Get the currently logged-in user
-  const auth = getAuth(app);
-  // Get the currently logged-in user
   const user = auth.currentUser;
   console.log(user);
 
@@ -238,6 +246,23 @@ async function recycleBottle(stationNumber) {
   if (!marker) {
     console.error("Marker not found");
     return;
+  }
+
+  if (marker.currentCap >= marker.capacity) {
+    presentAlert();
+    console.log("marker capacity is " + marker.capacity);
+    return;
+  }
+
+  async function presentAlert() {
+    const alert = await alertController.create({
+      header: "Station Full",
+      message:
+        "This station is full, please use another Cycl recycling station.",
+      buttons: ["OK"],
+    });
+
+    return alert.present();
   }
 
   showBarcodeOverlay.value = true;
@@ -385,7 +410,6 @@ async function recycleBottle(stationNumber) {
                           console.log("Bottle is recycled");
                           infoText.value = "Bottle recycled";
                           isCurrentCapUpdated = true;
-
                           // Update marker capacity
                           marker.currentCap += 1;
 
