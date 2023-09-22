@@ -43,7 +43,9 @@
       </div>
       <ion-list>
         <ion-item
-          v-for="reward in rewards"
+          v-for="reward in rewards.filter(
+            (r) => !('left' in r) || r.left !== 0
+          )"
           :key="reward.id"
           @click="activateCoupon(reward)"
           style="
@@ -119,7 +121,7 @@
               {{ reward.about }}
             </p>
             <p
-              v-if="reward.type !== 'donation'"
+              v-if="reward.type !== 'donation' && 'left' in reward"
               style="
                 color: #fff;
                 margin: 5px 0 0 0;
