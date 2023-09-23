@@ -99,6 +99,8 @@ let userLocationMarker; // Variable to store the user location marker
 let watcherId; // Variable to store the watcher ID
 const recenterMapHandler = ref(null);
 const auth = getAuth(app);
+const intervals: number[] = [];
+let bottleDetected = false;
 
 async function loadMarkers() {
   try {
@@ -377,7 +379,6 @@ async function recycleBottle(stationNumber) {
               alert("Camera error: " + error.message);
               return;
             }
-
             video.addEventListener("play", () => {
               const draw = () => {
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -425,14 +426,20 @@ async function recycleBottle(stationNumber) {
                         else if (
                           canRecycle &&
                           recycledPrediction &&
-                          recycledPrediction.probability > 0.8
+                          recycledPrediction.probability > 0.8 &&
+                          !bottleDetected
                         ) {
-                          clearInterval(intervalId);
+                          bottleDetected = true;
+
+                          const stream = video.srcObject;
+                          const tracks = stream.getTracks();
+                          intervals.forEach((id) => clearInterval(id));
+                          intervals.length = 0; // Clear the intervals array
                           showCameraOverlay.value = false;
                           console.log("Bottle is recycled");
-                          alert("bottle recycled");
                           infoText.value = "Bottle recycled";
                           isCurrentCapUpdated = true;
+
                           // Update marker capacity
                           marker.currentCap += 1;
                           canRecycle = false; // Reset the flag
@@ -457,32 +464,29 @@ async function recycleBottle(stationNumber) {
 
                           // Get the currently logged-in user
                           const auth = getAuth(app);
-                          // Get the currently logged-in user
                           const user = auth.currentUser;
 
                           // User is logged in, proceed to update the Cycl-coins
-                          try {
-                            const userDocRef = doc(db, "users", user.uid); // Adjust "users" to your users collection name
-                            const userDoc = await getDoc(userDocRef);
-
-                            if (userDoc.exists()) {
-                              // If the user document exists, get the current Cycl-coins value
-                              const userData = userDoc.data();
-                              let cyclCoins = userData?.CyclCoins || 0;
-
-                              // Increment the Cycl-coins by a certain amount
-                              cyclCoins += 2;
-
-                              // Update the user's Cycl-coins in the database
-                              await updateDoc(userDocRef, {
-                                CyclCoins: cyclCoins,
-                              });
-                            } else {
-                              // If the user document does not exist, create it with Cycl-coins set to a certain amount
-                              await setDoc(userDocRef, { CyclCoins: 2 });
+                          if (user) {
+                            try {
+                              const userDocRef = doc(db, "users", user.uid);
+                              const userDoc = await getDoc(userDocRef);
+                              if (userDoc.exists()) {
+                                const userData = userDoc.data();
+                                let cyclCoins = userData?.CyclCoins || 0;
+                                cyclCoins += 2;
+                                await updateDoc(userDocRef, {
+                                  CyclCoins: cyclCoins,
+                                });
+                              } else {
+                                await setDoc(userDocRef, { CyclCoins: 2 });
+                              }
+                            } catch (error) {
+                              console.error(
+                                "Error updating Cycl-coins:",
+                                error
+                              );
                             }
-                          } catch (error) {
-                            console.error("Error updating Cycl-coins:", error);
                           }
                         } else if (
                           recycledPrediction_on &&
@@ -499,9 +503,10 @@ async function recycleBottle(stationNumber) {
                     }
                   },
                   "image/jpeg",
-                  0.5
+                  0.1
                 );
-              }, 1500);
+              }, 1700);
+              intervals.push(intervalId); // Make sure you're storing each interval ID in the intervals array
             });
           } else {
             console.log("Invalid code");
@@ -522,6 +527,8 @@ onUnmounted(() => {
   if (watcherId != null) {
     Geolocation.clearWatch({ id: watcherId });
   }
+  intervals.forEach((id) => clearInterval(id));
+  intervals.length = 0; // Clear the intervals array
 });
 onMounted(() => {
   loadMarkers().then(() => {
