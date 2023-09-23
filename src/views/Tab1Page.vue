@@ -300,7 +300,12 @@ async function recycleBottle(stationNumber) {
           },
           numOfWorkers: 4,
           decoder: {
-            readers: ["code_128_reader"],
+            readers: [
+              "code_128_reader",
+              "ean_reader",
+              "ean_8_reader",
+              "code_39_reader",
+            ],
           },
           locate: true,
         },
@@ -633,7 +638,7 @@ button {
 }
 
 .custom-marker {
-  background-image: url("/196.png");
+  background-image: url("/markerImage.png");
   background-size: cover;
   width: 50px;
   height: 50px;

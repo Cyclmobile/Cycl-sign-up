@@ -12,6 +12,11 @@
     "server": {
       "url": "http://localhost",
       "cleartext": true
+    },
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#65bc50"
     }
   }
 }

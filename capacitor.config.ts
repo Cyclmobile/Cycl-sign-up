@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
     AdMob: {
       adSize: "BANNER",
       testDevices: [],
-      bannerAdUnitId: "ca-app-pub-8255021700561730/2737351779",
+      bannerAdUnitId: "ca-app-pub-3940256099942544/2934735716",
       requestTrackingAuthorization: true,
     },
   },

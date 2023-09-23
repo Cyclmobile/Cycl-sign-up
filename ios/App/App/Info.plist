@@ -9,6 +9,10 @@
 			<true/>
 		</dict>
 
+		<key>GADApplicationIdentifier</key>
+		<string>ca-app-pub-8255021700561730~7728088617</string>
+
+
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>We need access to your photo library to allow you to select photos to upload.</string>
 

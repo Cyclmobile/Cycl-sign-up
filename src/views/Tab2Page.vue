@@ -229,7 +229,7 @@ export default defineComponent({
     const showBannerAd = async (index) => {
       try {
         await AdMob.showBanner({
-          adId: "ca-app-pub-8255021700561730/2737351779",
+          adId: "ca-app-pub-3940256099942544/2934735716",
           adSize: "BANNER",
           position: "BOTTOM",
           hasTabBar: false,
