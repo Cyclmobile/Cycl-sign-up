@@ -347,7 +347,8 @@ async function recycleBottle(stationNumber) {
             norwayCodes.includes(scannedCode)
           ) {
             console.log("Valid code");
-
+            intervals.forEach((id) => clearInterval(id));
+            intervals.length = 0;
             // Proceed with your existing logic for a valid code
             showBarcodeOverlay.value = false;
             Quagga.stop();
@@ -487,6 +488,7 @@ async function recycleBottle(stationNumber) {
                                 error
                               );
                             }
+                            bottleDetected = false; // Reset the flag for the next bottle
                           }
                         } else if (
                           recycledPrediction_on &&
@@ -505,8 +507,8 @@ async function recycleBottle(stationNumber) {
                   "image/jpeg",
                   0.1
                 );
-              }, 1700);
-              intervals.push(intervalId); // Make sure you're storing each interval ID in the intervals array
+              }, 2000);
+              intervals.push(intervalId); // Store this new interval ID
             });
           } else {
             console.log("Invalid code");
@@ -529,11 +531,13 @@ onUnmounted(() => {
   }
   intervals.forEach((id) => clearInterval(id));
   intervals.length = 0; // Clear the intervals array
+  recycleBottle(stationNumber);
 });
 onMounted(() => {
   loadMarkers().then(() => {
     initMap();
   });
+  recycleBottle(stationNumber);
 });
 </script>
 
@@ -546,9 +550,9 @@ onMounted(() => {
   height: 100%;
   background: linear-gradient(
     135deg,
-    var(--ion-color-primary-tint) 0%,
-    var(--ion-color-primary-shade) 100%
-  );
+    #65bc50,
+    #519e40
+  ); /* Using the provided color and a darker shade for gradient */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -557,32 +561,43 @@ onMounted(() => {
   backdrop-filter: blur(10px);
 }
 
+.camera-overlay video,
+.camera-overlay canvas {
+  border-radius: 10px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+}
+
 .camera-overlay h1 {
-  color: var(--ion-color-light);
+  color: white; /* White color for contrast against the green */
   font-size: 2em;
   margin-bottom: 20px;
   z-index: 1000;
-  text-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
   font-family: "Roboto", sans-serif;
 }
 
 .camera-overlay button {
-  --background: var(--ion-color-primary);
-  --color: var(--ion-color-light);
+  --background: rgba(255, 255, 255, 0.1);
+  --color: white; /* White color for contrast against the green */
   --padding-start: 1em;
   --padding-end: 1em;
   --border-radius: 12px;
   font-size: 1em;
   z-index: 1000;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s;
+}
+
+.camera-overlay button:hover {
+  transform: scale(1.05);
 }
 
 .camera-overlay .close-button {
   position: absolute;
   top: 20px;
   right: 20px;
-  --background: var(--ion-color-danger);
-  --color: var(--ion-color-light);
+  --background: #e74c3c; /* Contrast red for the close button */
+  --color: white;
   font-size: 24px;
   padding: 10px;
   cursor: pointer;
