@@ -23,6 +23,7 @@
       <div v-if="showBarcodeOverlay" class="barcode-overlay">
         <div id="interactive" class="viewport"></div>
         <div id="scanner-container"></div>
+        <Scanner :showBarcodeOverlay="showBarcodeOverlay" />
 
         <div class="scan-instruction">
           <ion-icon aria-hidden="true" :icon="scanOutline" class="scan-icon" />
@@ -346,172 +347,17 @@ async function recycleBottle(stationNumber) {
             denmarkCodes.includes(scannedCode) ||
             norwayCodes.includes(scannedCode)
           ) {
-            console.log("Valid code");
-            intervals.forEach((id) => clearInterval(id));
-            intervals.length = 0;
+            console.log("Valid code" + scannedCode);
+
+            //the above part on its own
             // Proceed with your existing logic for a valid code
             showBarcodeOverlay.value = false;
-            Quagga.stop();
             showCameraOverlay.value = true;
-
-            const video = videoRef.value;
-            const canvas = canvasRef.value;
-            const context = canvas.getContext("2d");
-            let canRecycle = false; // Initialize outside of your data check loop
-
-            const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
-            const predictionURL =
-              "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
-
-            try {
-              const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                  facingMode: "environment",
-                  width: { ideal: 640 },
-                  height: { ideal: 480 },
-                },
-              });
-              video.srcObject = stream;
-              video.onloadedmetadata = () => {
-                video.play();
-              };
-            } catch (error) {
-              console.error("Error accessing camera:", error);
-              alert("Camera error: " + error.message);
-              return;
-            }
-            video.addEventListener("play", () => {
-              const draw = () => {
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                requestAnimationFrame(draw);
-              };
-              draw();
-
-              let isCurrentCapUpdated = false;
-
-              const intervalId = setInterval(async () => {
-                canvas.toBlob(
-                  async (blob) => {
-                    try {
-                      const response = await fetch(predictionURL, {
-                        method: "POST",
-                        headers: {
-                          "Prediction-Key": predictionKey,
-                          "Content-Type": "application/octet-stream",
-                        },
-                        body: blob,
-                      });
-                      const data = await response.json();
-                      console.log(data);
-
-                      if (data.predictions && data.predictions.length > 0) {
-                        const recycledPrediction = data.predictions.find(
-                          (p) => p.tagName === "recycled"
-                        );
-                        const recycledPrediction_off = data.predictions.find(
-                          (p) => p.tagName === "OffPosition"
-                        );
-                        const recycledPrediction_on = data.predictions.find(
-                          (p) => p.tagName === "on-position"
-                        );
-
-                        // Check if recycledPrediction_on is true
-                        if (
-                          recycledPrediction_on &&
-                          recycledPrediction_on.probability > 0.8
-                        ) {
-                          infoText.value = "Drop your bottle";
-                          canRecycle = true; // Set the flag to true when recycledPrediction_on is met
-                        }
-                        // If recycledPrediction_on condition was previously met, then check for recycledPrediction
-                        else if (
-                          canRecycle &&
-                          recycledPrediction &&
-                          recycledPrediction.probability > 0.8 &&
-                          !bottleDetected
-                        ) {
-                          bottleDetected = true;
-
-                          const stream = video.srcObject;
-                          const tracks = stream.getTracks();
-                          intervals.forEach((id) => clearInterval(id));
-                          intervals.length = 0; // Clear the intervals array
-                          showCameraOverlay.value = false;
-                          console.log("Bottle is recycled");
-                          infoText.value = "Bottle recycled";
-                          isCurrentCapUpdated = true;
-
-                          // Update marker capacity
-                          marker.currentCap += 1;
-                          canRecycle = false; // Reset the flag
-
-                          // Update the currentCap in the Firestore database
-                          try {
-                            const markerRef = doc(
-                              db,
-                              "stations",
-                              stationNumber
-                            );
-                            await updateDoc(markerRef, {
-                              currentCap: marker.currentCap,
-                            });
-                          } catch (error) {
-                            console.error(
-                              "Error updating capacity in the database",
-                              error
-                            );
-                            alert("Failed to update capacity in the database");
-                          }
-
-                          // Get the currently logged-in user
-                          const auth = getAuth(app);
-                          const user = auth.currentUser;
-
-                          // User is logged in, proceed to update the Cycl-coins
-                          if (user) {
-                            try {
-                              const userDocRef = doc(db, "users", user.uid);
-                              const userDoc = await getDoc(userDocRef);
-                              if (userDoc.exists()) {
-                                const userData = userDoc.data();
-                                let cyclCoins = userData?.CyclCoins || 0;
-                                cyclCoins += 2;
-                                await updateDoc(userDocRef, {
-                                  CyclCoins: cyclCoins,
-                                });
-                              } else {
-                                await setDoc(userDocRef, { CyclCoins: 2 });
-                              }
-                            } catch (error) {
-                              console.error(
-                                "Error updating Cycl-coins:",
-                                error
-                              );
-                            }
-                            bottleDetected = false; // Reset the flag for the next bottle
-                          }
-                        } else if (
-                          recycledPrediction_on &&
-                          recycledPrediction_on.probability > 0.8
-                        ) {
-                          infoText.value = "Drop your bottle";
-                        } else {
-                          infoText.value =
-                            "Place your bottle on top of the hole";
-                        }
-                      }
-                    } catch (error) {
-                      console.error(error);
-                    }
-                  },
-                  "image/jpeg",
-                  0.1
-                );
-              }, 2000);
-              intervals.push(intervalId); // Store this new interval ID
-            });
+            predictionAi();
+            Quagga.stop();
           } else {
             console.log("Invalid code");
+            console.log("Invalid code" + scannedCode);
             // Handle the invalid code case
             // Perhaps you can show a message to the user indicating the code is invalid
           }
@@ -522,8 +368,165 @@ async function recycleBottle(stationNumber) {
     } catch (error) {
       console.error("Quagga initialization error:", error);
     }
+
+    async function predictionAi() {
+      const video = videoRef.value;
+      const canvas = canvasRef.value;
+      const context = canvas.getContext("2d");
+      let canRecycle = false;
+
+      const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
+      const predictionURL =
+        "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
+        });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          video.play();
+        };
+      } catch (error) {
+        console.error("Error accessing camera:", error);
+        alert("Camera error: " + error.message);
+        return;
+      }
+
+      video.addEventListener("play", () => {
+        const draw = () => {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          requestAnimationFrame(draw);
+        };
+        draw();
+
+        let shouldContinuePredicting = true;
+
+        const intervalId = setInterval(async () => {
+          if (!shouldContinuePredicting) {
+            clearInterval(intervalId); // Clear the interval here to stop further calls
+            return; // If we shouldn't continue predicting, just return
+          }
+          canvas.toBlob(
+            async (blob) => {
+              try {
+                const response = await fetch(predictionURL, {
+                  method: "POST",
+                  headers: {
+                    "Prediction-Key": predictionKey,
+                    "Content-Type": "application/octet-stream",
+                  },
+                  body: blob,
+                });
+                const data = await response.json();
+                console.log(data);
+
+                if (data.predictions && data.predictions.length > 0) {
+                  const recycledPrediction = data.predictions.find(
+                    (p) => p.tagName === "recycled"
+                  );
+                  const recycledPrediction_on = data.predictions.find(
+                    (p) => p.tagName === "on-position"
+                  );
+
+                  if (
+                    recycledPrediction_on &&
+                    recycledPrediction_on.probability > 0.8
+                  ) {
+                    infoText.value = "Drop your bottle";
+                    canRecycle = true;
+                  } else if (
+                    canRecycle &&
+                    recycledPrediction &&
+                    recycledPrediction.probability > 0.8 &&
+                    !bottleDetected
+                  ) {
+                    bottleDetected = true;
+
+                    const stream = video.srcObject;
+                    const tracks = stream.getTracks();
+                    tracks.forEach((track) => track.stop()); // Stop the camera here
+
+                    console.log("Bottle is recycled");
+                    infoText.value = "Bottle recycled";
+                    shouldContinuePredicting = false; // Set the flag to false, this will stop the next iterations of the interval
+                    intervals.forEach((interval) => clearInterval(interval));
+                    console.log("Stopping predictions because bottle detected");
+                    shouldContinuePredicting = false;
+                    clearInterval(intervalId);
+
+                    showCameraOverlay.value = false;
+
+                    // Update marker capacity
+                    marker.currentCap += 1;
+                    canRecycle = false; // Reset the flag
+
+                    // Update the currentCap in the Firestore database
+                    try {
+                      const markerRef = doc(db, "stations", stationNumber);
+                      await updateDoc(markerRef, {
+                        currentCap: marker.currentCap,
+                      });
+                    } catch (error) {
+                      console.error(
+                        "Error updating capacity in the database",
+                        error
+                      );
+                      alert("Failed to update capacity in the database");
+                    }
+
+                    // Get the currently logged-in user
+                    const auth = getAuth(app);
+                    const user = auth.currentUser;
+
+                    // User is logged in, proceed to update the Cycl-coins
+                    if (user) {
+                      try {
+                        const userDocRef = doc(db, "users", user.uid);
+                        const userDoc = await getDoc(userDocRef);
+                        if (userDoc.exists()) {
+                          const userData = userDoc.data();
+                          let cyclCoins = userData?.CyclCoins || 0;
+                          cyclCoins += 2;
+                          await updateDoc(userDocRef, {
+                            CyclCoins: cyclCoins,
+                          });
+                        } else {
+                          await setDoc(userDocRef, { CyclCoins: 2 });
+                        }
+                      } catch (error) {
+                        console.error("Error updating Cycl-coins:", error);
+                      }
+                      bottleDetected = false; // Reset the flag for the next bottle
+                    }
+                  } else if (
+                    recycledPrediction_on &&
+                    recycledPrediction_on.probability > 0.8
+                  ) {
+                    infoText.value = "Drop your bottle";
+                  } else {
+                    infoText.value = "Place your bottle on top of the hole";
+                  }
+                }
+              } catch (error) {
+                console.error(error);
+              }
+              return;
+            },
+            "image/jpeg",
+            0.1
+          );
+        }, 500);
+        intervals.push(intervalId); // Make sure you're storing each interval ID in the intervals array
+      });
+    }
   });
 }
+
 onUnmounted(() => {
   // Clear the geolocation watcher when the component is unmounted
   if (watcherId != null) {
@@ -531,13 +534,11 @@ onUnmounted(() => {
   }
   intervals.forEach((id) => clearInterval(id));
   intervals.length = 0; // Clear the intervals array
-  recycleBottle(stationNumber);
 });
 onMounted(() => {
   loadMarkers().then(() => {
     initMap();
   });
-  recycleBottle(stationNumber);
 });
 </script>
 
@@ -550,9 +551,9 @@ onMounted(() => {
   height: 100%;
   background: linear-gradient(
     135deg,
-    #65bc50,
-    #519e40
-  ); /* Using the provided color and a darker shade for gradient */
+    var(--ion-color-primary-tint) 0%,
+    var(--ion-color-primary-shade) 100%
+  );
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -561,43 +562,32 @@ onMounted(() => {
   backdrop-filter: blur(10px);
 }
 
-.camera-overlay video,
-.camera-overlay canvas {
-  border-radius: 10px;
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
-}
-
 .camera-overlay h1 {
-  color: white; /* White color for contrast against the green */
+  color: var(--ion-color-light);
   font-size: 2em;
   margin-bottom: 20px;
   z-index: 1000;
-  text-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+  text-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
   font-family: "Roboto", sans-serif;
 }
 
 .camera-overlay button {
-  --background: rgba(255, 255, 255, 0.1);
-  --color: white; /* White color for contrast against the green */
+  --background: var(--ion-color-primary);
+  --color: var(--ion-color-light);
   --padding-start: 1em;
   --padding-end: 1em;
   --border-radius: 12px;
   font-size: 1em;
   z-index: 1000;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
-}
-
-.camera-overlay button:hover {
-  transform: scale(1.05);
 }
 
 .camera-overlay .close-button {
   position: absolute;
   top: 20px;
   right: 20px;
-  --background: #e74c3c; /* Contrast red for the close button */
-  --color: white;
+  --background: var(--ion-color-danger);
+  --color: var(--ion-color-light);
   font-size: 24px;
   padding: 10px;
   cursor: pointer;
