@@ -30,6 +30,7 @@
     "firebase": "^10.3.1",
     "fix": "^0.0.6",
     "ionicons": "^7.0.0",
+    "lottie-vuejs": "^0.4.0",
     "mapbox-gl": "^1.13.3",
     "quagga": "^0.12.1",
     "swiper": "^10.3.0",

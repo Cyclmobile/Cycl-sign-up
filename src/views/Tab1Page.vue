@@ -543,7 +543,7 @@ async function recycleBottle(stationNumber) {
             "image/jpeg",
             0.1
           );
-        }, 500);
+        }, 490);
         intervals.push(intervalId); // Make sure you're storing each interval ID in the intervals array
       });
     }

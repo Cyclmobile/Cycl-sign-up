@@ -2,17 +2,116 @@
   <ion-page>
     <ion-content class="login-background">
       <swiper :options="swiperOptions">
+        <!-- First Slide with Lottie Animation -->
+        <swiper-slide>
+       <div class="slide-content">
+    <iframe
+      style="
+        pointer-events: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        height: 100%;
+        width: 100%;
+        border: none;
+      "
+      src="https://lottie.host/?file=d47df551-23bb-4c32-8b14-b41b1914756c/QON4d0Zl6J.json"
+    ></iframe>
+    <div class="text-container">
+      <h1 class="slide-title">Recycling Station</h1>
+      <p class="slide-text">Find nearby Recycling station</p>
+    </div>
+  </div>
+        </swiper-slide>
+
+        <swiper-slide>
+          <div class="slide-content">
+            <iframe
+              style="
+                pointer-events: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                right: 0;
+                height: 100%;
+                width: 100%;
+                border: none;
+              "
+              src="https://lottie.host/?file=c1b5a1dd-7a76-4497-a586-0507f8e63622/eylqSqZXnx.json"
+            ></iframe>
+             <div class="text-container"> 
+               <h1 class="slide-title">Scan bottle</h1>
+            <p class="slide-text">Scan Your bottle</p>
+             </div>
+            
+          </div>
+        </swiper-slide>
+
+        <swiper-slide>
+          <div class="slide-content">
+            <iframe
+              style="
+                pointer-events: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                right: 0;
+                height: 100%;
+                width: 100%;
+                border: none;
+              "
+              src="https://lottie.host/?file=1841efff-2213-40ce-a8ca-53396fc889fb/BmMNxKGNS5.json"
+            ></iframe>
+             <div class="text-container"> 
+             <h1 class="slide-title">Recycling Station</h1>
+            <p class="slide-text">
+              Hold Your bottle on top of the hole and your phone on with camera
+              running on top
+            </p>
+            </div>
+          </div>
+        </swiper-slide>
+
+        <swiper-slide>
+          <div class="slide-content">
+            <iframe
+              style="
+                pointer-events: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                right: 0;
+                height: 100%;
+                width: 100%;
+                border: none;
+              "
+              src="https://lottie.host/?file=b5c9094c-83b6-4a37-949f-333d73fe1034/LeMiwPeO9x.json"
+            ></iframe>
+             <div class="text-container"> 
+            <p class="slide-text">
+               <h1 class="slide-title">Recycling Station</h1>
+              Drop you bottle and do not move your hand from camera to prevent
+              losing points, wait for the signal then you done
+            </p>
+            </div>
+          </div>
+        </swiper-slide>
         <!-- Onboarding Slides -->
-        <swiper-slide v-for="path in imagePaths" :key="path">
+        <!-- <swiper-slide v-for="path in imagePaths" :key="path">
           <div class="slide-content">
             <img :src="path" :alt="path" class="slide-image" />
             <p class="slide-text">Text for {{ path }}</p>
           </div>
-        </swiper-slide>
+        </swiper-slide> -->
 
         <!-- Login Slide -->
         <swiper-slide>
-          <div class="login-container swiper-no-swiping">
+          <div class="login-container">
             <ion-button expand="full" @click="googleLogin">
               Login with Google
             </ion-button>
@@ -42,6 +141,8 @@
 <script lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useRouter } from "vue-router";
+import Lottie from "lottie-vuejs"; // Import Lottie
+
 import {
   IonButton,
   IonContent,
@@ -106,6 +207,7 @@ export default {
     IonAlert,
     Swiper,
     SwiperSlide,
+    Lottie,
   },
   setup() {
     const email = ref("");
@@ -113,6 +215,13 @@ export default {
     const router = useRouter();
     const showAlert = ref(false);
     const provider = new GoogleAuthProvider();
+
+    // Lottie options
+    const lottieOptions = {
+      path: "https://lottie.host/?file=d47df551-23bb-4c32-8b14-b41b1914756c/QON4d0Zl6J.json", // path to the Lottie JSON file
+      loop: true, // whether animation should loop
+      autoplay: true, // whether animation should autoplay
+    };
 
     const googleLogin = async () => {
       try {
@@ -240,6 +349,7 @@ export default {
       showAlert,
       goToSignup,
       googleLogin,
+      lottieOptions,
       imagePaths: [
         "/196.png",
         "/216.png",
@@ -259,6 +369,26 @@ export default {
 </script>
 
 <style>
+.slide-title {
+  color: #40b967; /* dark color for title */
+  font-family: 'Roboto', sans-serif;
+  font-size: 1.5em;
+  font-weight: 500;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.text-container {
+  position: absolute;
+  bottom: 10%;
+  left: 5%;
+  width: 90%;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 20px;
+  border-radius: 15px; 
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+}
+
 .login-background {
   --background: linear-gradient(135deg, #f6f7f9 0%, #d9e4dd 100%);
   height: 100vh; /* take up the full viewport height */
@@ -276,14 +406,10 @@ export default {
 }
 
 .slide-text {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
-  padding: 10px;
-  border-radius: 5px;
+  color: #555; /* slightly lighter color for text */
+  font-family: 'Roboto', sans-serif;
+  font-size: 1em;
+  text-align: left;
 }
 
 .slide-image {
