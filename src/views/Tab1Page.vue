@@ -388,10 +388,19 @@ async function recycleBottle(stationNumber) {
       const canvas = canvasRef.value;
       const context = canvas.getContext("2d");
       let canRecycle = false;
+      const db = getFirestore();
+
+      const predictionUrlRef = doc(db, "predictionURL", "prediction");
+      const predictionUrlDoc = await getDoc(predictionUrlRef);
+      let predictionURL = "";
+      if (predictionUrlDoc.exists()) {
+        predictionURL = predictionUrlDoc.data().urlprediction;
+      } else {
+        console.error("No URL found in the Firestore");
+        return; // return from the function if the URL is not found
+      }
 
       const predictionKey = "75deb4a7d3c64b8e9f9cb69984efbc6f";
-      const predictionURL =
-        "https://northeurope.api.cognitive.microsoft.com/customvision/v3.0/Prediction/c066cfd2-2ebc-4a0b-9250-fb6470db2a19/detect/iterations/Iteration28/image";
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
