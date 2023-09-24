@@ -1,52 +1,46 @@
 <template>
   <ion-page>
     <ion-content class="login-background">
-      <!-- Slide Show -->
-      <ion-slides pager="true" options="{initialSlide: 0, speed: 400}">
-        <!-- <ion-slide>
-          <img src="path/to/your/image1.jpg" alt="Image 1" />
-          <p class="slide-text" style="color: #65bc50">Text for image 1</p>
-        </ion-slide>
-        <ion-slide>
-          <img src="path/to/your/image2.jpg" alt="Image 2" />
-          <p class="slide-text" style="color: #31b46f">Text for image 2</p>
-        </ion-slide> -->
-        <ion-slide>
-          <!-- Login Form -->
-          <ion-button
-            expand="full"
-            style="margin-top: 20px"
-            @click="googleLogin"
-          >
-            Login with Google
-          </ion-button>
-
-          <div class="login-container">
-            <ion-item>
-              <IonInput v-model="email" placeholder="Email" />
-            </ion-item>
-            <ion-item>
-              <IonInput
-                v-model="password"
-                placeholder="Password"
-                type="password"
-              />
-            </ion-item>
-            <ion-button expand="full" style="margin-top: 20px" @click="login">
-              Login
-            </ion-button>
-            <ion-text style="color: #65bc50; text-align: center">
-              <a @click="goToSignup">Sign Up</a>
-            </ion-text>
+      <swiper :options="swiperOptions">
+        <!-- Onboarding Slides -->
+        <swiper-slide v-for="path in imagePaths" :key="path">
+          <div class="slide-content">
+            <img :src="path" :alt="path" class="slide-image" />
+            <p class="slide-text">Text for {{ path }}</p>
           </div>
-        </ion-slide>
-      </ion-slides>
+        </swiper-slide>
+
+        <!-- Login Slide -->
+        <swiper-slide>
+          <div class="login-container swiper-no-swiping">
+            <ion-button expand="full" @click="googleLogin">
+              Login with Google
+            </ion-button>
+            <div class="login-container">
+              <ion-item>
+                <ion-input v-model="email" placeholder="Email" />
+              </ion-item>
+              <ion-item>
+                <ion-input
+                  v-model="password"
+                  placeholder="Password"
+                  type="password"
+                />
+              </ion-item>
+              <ion-button expand="full" @click="login">Login</ion-button>
+              <ion-text>
+                <a @click="goToSignup">Sign Up</a>
+              </ion-text>
+            </div>
+          </div>
+        </swiper-slide>
+      </swiper>
     </ion-content>
   </ion-page>
 </template>
 
 <script lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import {
   IonButton,
@@ -69,6 +63,8 @@ import {
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 import { initializeApp } from "firebase/app";
 import { Capacitor } from "@capacitor/core";
+import { Swiper, SwiperSlide } from "swiper/vue";
+import "swiper/css";
 
 // Your firebase configuration
 const firebaseConfig = {
@@ -108,6 +104,8 @@ export default {
     IonItem,
     IonText,
     IonAlert,
+    Swiper,
+    SwiperSlide,
   },
   setup() {
     const email = ref("");
@@ -128,7 +126,43 @@ export default {
       }
     };
 
-    onMounted(() => {
+    const preventLastSlideSwiping = async () => {
+      const slides = document.querySelector("ion-slides");
+      if (slides) {
+        const swiper = await slides.getSwiper(); // Use the getSwiper method from Ionic
+        const currentIndex = swiper.activeIndex;
+
+        if (currentIndex === imagePaths.value.length) {
+          swiper.allowSlidePrev = false; // prevent going back
+          swiper.allowSlideNext = false; // prevent going further
+        } else {
+          swiper.allowSlidePrev = true;
+          swiper.allowSlideNext = true;
+        }
+      }
+    };
+
+    // Get the currently logged-in user
+    const auth = getAuth(app);
+
+    const user = auth.currentUser;
+    console.log(user);
+    // login user if user already signed in
+    // router.replace("tab1");
+
+    if (!user) {
+      // Redirect to login if the user is not logged in
+      router.replace("login"); // Adjust with your router setup
+    }
+
+    onMounted(async () => {
+      await nextTick(); // Wait for the DOM to be updated
+
+      const slides = document.querySelector("ion-slides");
+      if (slides && slides.swiper) {
+        slides.swiper.update();
+      }
+
       const tabBar = document.querySelector("ion-tab-bar");
       if (tabBar) {
         tabBar.style.display = "none";
@@ -206,6 +240,19 @@ export default {
       showAlert,
       goToSignup,
       googleLogin,
+      imagePaths: [
+        "/196.png",
+        "/216.png",
+        "/favicon.png",
+        "privacy.png",
+        "/terms.png",
+      ],
+      preventLastSlideSwiping,
+      swiperOptions: {
+        initialSlide: 0,
+        speed: 400,
+        direction: "horizontal",
+      },
     };
   },
 };
@@ -213,36 +260,108 @@ export default {
 
 <style>
 .login-background {
-  --background: #65bc50; /* Adjust as needed */
+  --background: linear-gradient(135deg, #f6f7f9 0%, #d9e4dd 100%);
+  height: 100vh; /* take up the full viewport height */
+  display: flex;
+  flex-direction: column;
+}
+
+.swiper-slide {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .slide-text {
-  text-align: center;
-  font-size: 1.2em;
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
 }
 
+.slide-image {
+  width: 100vw;
+  height: 100vh;
+  object-fit: contain; /* Makes sure the entire image is visible */
+  object-position: center; /* Ensures the image remains centered */
+}
+
+.slide-image:hover {
+  transform: scale(1.05);
+}
+
+.slide-content,
 .login-container {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  padding: 20px;
 }
 
 ion-item {
-  --background: #fff;
+  --background: rgba(255, 255, 255, 0.8);
   --padding-start: 20px;
   --padding-end: 20px;
   margin-bottom: 20px;
+  border-radius: 10px;
+  box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+ion-item:hover {
+  box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 ion-button {
-  --background: #31b46f;
+  --background: linear-gradient(135deg, #31b46f 0%, #28a965 100%);
+  border-radius: 10px;
+  box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+ion-button:hover {
+  box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.15);
 }
 
 ion-text a {
-  text-decoration: underline;
+  text-decoration: none;
   cursor: pointer;
+  color: #31b46f;
+  transition: color 0.2s ease-in-out;
+}
+
+ion-text a:hover {
+  color: #28a965;
+}
+
+ion-content {
+  --background: #f6f7f9;
+  height: 100vh;
+}
+
+/* Styles for larger screens (like tablets) */
+@media (min-width: 720px) {
+  .slide-image {
+    width: 50%;
+  }
+}
+
+/* Styles specific to smartphones */
+@media (max-width: 719px) {
+  .slide-image {
+    width: 80%;
+  }
+
+  .slide-text {
+    font-size: 1.2em; /* Adjust font-size for smaller screens */
+  }
 }
 </style>

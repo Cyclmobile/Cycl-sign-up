@@ -210,8 +210,8 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
           <h6>Address:${marker.address}</h6>
       </div>
       <div style="display: flex; align-items: center; margin-bottom: 5px;">
-          <i class="icon ion-md-water" style="color: white; font-size: 20px; margin-right: 10px;"></i>
-          <h6>Full: ${marker.currentCap}</h6>
+<i class="icon ion-md-trash" style="color: white; font-size: 20px; margin-right: 10px;"></i>
+          <h6>Capacity: ${marker.currentCap}</h6>
       </div>
       <button onClick="window.recycleBottle('${marker.stationNumber}')">Recycle your bottle</button>
   </div>`
@@ -239,6 +239,15 @@ function initMap(centerCoordinates: [number, number] = [0, 0]) {
       console.error("Error getting location", error);
     });
   });
+}
+
+// Get the currently logged-in user
+const user = auth.currentUser;
+console.log(user);
+
+if (!user) {
+  // Redirect to login if the user is not logged in
+  router.replace("login"); // Adjust with your router setup
 }
 
 async function recycleBottle(stationNumber) {
