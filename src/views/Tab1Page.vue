@@ -247,7 +247,7 @@ console.log(user);
 
 if (!user) {
   // Redirect to login if the user is not logged in
-  router.replace("login"); // Adjust with your router setup
+ // router.replace("login"); // Adjust with your router setup
 }
 
 async function recycleBottle(stationNumber) {
@@ -257,8 +257,8 @@ async function recycleBottle(stationNumber) {
 
   if (!user) {
     // Redirect to login if the user is not logged in
-    router.push("login"); // Adjust with your router setup
-    return;
+    // router.push("login"); // Adjust with your router setup
+    // return;
   }
   if (!stationNumber) {
     console.error("No stationNumber provided.");

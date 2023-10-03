@@ -270,12 +270,13 @@ export default {
       const slides = document.querySelector("ion-slides");
       if (slides && slides.swiper) {
         slides.swiper.update();
+        console.log("Updated!!!")
       }
 
-      const tabBar = document.querySelector("ion-tab-bar");
-      if (tabBar) {
-        tabBar.style.display = "none";
-      }
+      // const tabBar = document.querySelector("ion-tab-bar");
+      // if (tabBar) {
+      //   tabBar.style.display = "none";
+      // }
     });
 
     onBeforeUnmount(() => {
